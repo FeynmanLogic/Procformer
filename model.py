@@ -3,13 +3,14 @@ from finaltransformer import TransforMAP
 import torch
 import torch.nn as nn
 import numpy as np 
-d_model = 512
+d_model = 40
 num_heads = 8
 drop_prob = 0.1
-batch_size = 30
-max_sequence_length = 200
+batch_size = 1
+
 ffn_hidden = 1024
 num_layers = 5
+
 path='finaltransformer.py'
 class MLPrefetchModel(object):
     '''
@@ -20,29 +21,33 @@ class MLPrefetchModel(object):
     '''
     @abstractmethod
     def __init__(self):
-        self.model=TransforMAP
-        self.page_size=16
-        self.block_size=32
-        pass
+        self.model = TransforMAP(
+            d_model=d_model, num_heads=num_heads, num_layers=num_layers,
+            ffn_hidden=ffn_hidden, drop_prob=drop_prob
+        )
+        self.page_size = 40
+        self.block_size = 8
+        self.mask = None
 
-    def load(self, path):
-        self.model = torch.load_state_dict(torch.load(path))
+    def load_model(self, path):
+        self.model.load_state_dict(torch.load(path))
+
+    def save_model(self, path):
+        torch.save(self.model.state_dict(), path)
+
+    def _create_mask(self, max_length):
+        mask = torch.full([max_length, max_length], float('-inf'))
+        mask = torch.triu(mask, diagonal=1)
+        return mask
 
 
     @abstractmethod
-    def save(self, path):
-        '''
-        Saves your model to the filepath path
-        
-        '''
-    
-        torch.save(self.model.state_dict(), path)
-        pass
+
     def preprocessor(self, data):
         input_features = []
         labels = []
         bitmaps = {}
-
+        max_seqeunce_length=len(data)
         for line in data:
             instr_id, cycle_count, load_address, instr_ptr, llc_hit_miss = line
             page = bin(load_address)[2:2+self.page_size]
@@ -55,7 +60,7 @@ class MLPrefetchModel(object):
             bitmaps[page][int(block, 2)] = 1 
             labels.append(bitmaps[page].copy())
         
-        return input_features, labels, bitmaps
+        return input_features, labels, bitmaps,max_seqeunce_length
                 
     @abstractmethod
 
@@ -71,37 +76,53 @@ class MLPrefetchModel(object):
 
         # So now the target labels for training are ready
 
+        input_features, labels, _, max_sequence_length = self.preprocessor(data)
 
-    # Tokenize and pad sequences
-        def pad_sequence(seq, max_length, pad_value=0):
-            return seq + [pad_value] * (max_length - len(seq))
-        input_features, labels, _=self.preprocessor(data)
-        max_length_input = max(len(str(page)) for _, page, _ in input_features)
-        tokenized_inputs = [pad_sequence([int(digit) for digit in str(page)], max_length_input) for _, page, _ in input_features]
+        tokenized_inputs = [[int(digit) for digit in str(page)] for _, page, _ in input_features]
+        tokenized_labels = [torch.tensor(label, dtype=torch.long) for label in labels]
 
-        tokenized_labels = [[int(digit) for digit in label] for label in labels]
-        print("Process ran until here 4")
         X = torch.tensor(tokenized_inputs, dtype=torch.long)
-        y = torch.tensor(tokenized_labels, dtype=torch.long)
+        y = torch.stack(tokenized_labels)
+    
+    # Debug: Print shapes
+        print("Shape of X before adding batch dimension:", X.shape)
+        print("Shape of y:", y.shape)
 
-        # Create DataLoader
+    # Add a batch dimension if it is missing
+        if len(X.size()) == 2:
+            X = X.unsqueeze(0)
+    
+    # Debug: Print shapes after adding batch dimension
+        print("Shape of X after adding batch dimension:", X.shape)
+        print("Shape of y:", y.shape)
+    
+    # Ensure y also has the batch dimension
+        if len(y.size()) == 2:
+            y = y.unsqueeze(0)
+    
+    # Debug: Print shapes after ensuring y batch dimension
+        print("Shape of X:", X.shape)
+        print("Shape of y after ensuring batch dimension:", y.shape)
+        X=X.float()
+    # Create DataLoader
         dataset = torch.utils.data.TensorDataset(X, y)
         dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
-
-        # Training setup
+    
+    # Training setup
         criterion = nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
-
+        if self.mask is None:
+            self.mask=self._create_mask(max_sequence_length)
         self.model.train()
         for epoch in range(10):
             for batch in dataloader:
                 inputs, targets = batch
                 optimizer.zero_grad()
-                outputs = self.model(inputs, inputs)  # Dummy target for training
+                outputs = self.model(inputs, inputs,self.mask)  # Dummy target for training
                 loss = criterion(outputs.view(-1, outputs.shape[-1]), targets.view(-1))
                 loss.backward()
                 optimizer.step()
-            print(f'Epoch {epoch + 1}, Loss: {loss.item()}')
+                print(f'Epoch {epoch + 1}, Loss: {loss.item()}')
                 
 
     '''

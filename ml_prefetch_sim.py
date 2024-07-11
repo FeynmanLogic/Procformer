@@ -375,7 +375,7 @@ def read_load_trace_data(load_trace, num_prefetch_warmup_instructions):
                 if line.startswith('***') or line.startswith('Read'):
                     continue
                 pline = process_line(line)
-                if pline[0] < num_prefetch_warmup_instructions * 100:
+                if pline[0] < num_prefetch_warmup_instructions * 10000:
                     train_data.append(pline)
                 else:
                     eval_data.append(pline)
@@ -386,7 +386,7 @@ def read_load_trace_data(load_trace, num_prefetch_warmup_instructions):
                 if line.startswith('***') or line.startswith('Read'):
                     continue
                 pline = process_line(line)
-                if pline[0] < num_prefetch_warmup_instructions * 100:
+                if pline[0] < num_prefetch_warmup_instructions * 10000:
                     train_data.append(pline)
                 else:
                     eval_data.append(pline)

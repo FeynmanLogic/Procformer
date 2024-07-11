@@ -255,7 +255,7 @@ class Decoder(nn.Module):
         return y #30 x 200 x 512
 
 class TransforMAP(nn.Module):
-    def __init__(self, data_tensor, d_model, ffn_hidden, num_heads, drop_prob, num_layers):
+    def __init__(self, d_model, ffn_hidden, num_heads, drop_prob, num_layers):
         super().__init__()
         self.encoder = Encoder(d_model, ffn_hidden, num_heads, drop_prob, num_layers)
         self.decoder = Decoder(d_model, ffn_hidden, num_heads, drop_prob, num_layers)
