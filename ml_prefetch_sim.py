@@ -264,7 +264,7 @@ def read_file(path, cache_level='LLC'):
             if cache_level not in line:
                 continue
             line = line.strip()
-            if 'LOAD' in line:
+            if 'LOAD' in line: 
                 data['load_miss'] = int(line.split()[-1])
             elif 'RFO' in line:
                 data['rfo_miss'] = int(line.split()[-1])
@@ -365,7 +365,7 @@ def read_load_trace_data(load_trace, num_prefetch_warmup_instructions):
     
     def process_line(line):
         split = line.strip().split(', ')
-        return int(split[0]), int(split[1]), int(split[2], 16), int(split[3], 16), split[4] == '1'
+        return int(split[0]), int(split[1]), int(split[2],16), int(split[2],16), split[4] == '1'
 
     train_data = []
     eval_data = []
@@ -375,7 +375,7 @@ def read_load_trace_data(load_trace, num_prefetch_warmup_instructions):
                 if line.startswith('***') or line.startswith('Read'):
                     continue
                 pline = process_line(line)
-                if pline[0] < num_prefetch_warmup_instructions * 1000000:
+                if pline[0] < num_prefetch_warmup_instructions * 100:
                     train_data.append(pline)
                 else:
                     eval_data.append(pline)
@@ -386,14 +386,15 @@ def read_load_trace_data(load_trace, num_prefetch_warmup_instructions):
                 if line.startswith('***') or line.startswith('Read'):
                     continue
                 pline = process_line(line)
-                if pline[0] < num_prefetch_warmup_instructions * 1000000:
+                if pline[0] < num_prefetch_warmup_instructions * 100:
                     train_data.append(pline)
                 else:
                     eval_data.append(pline)
+                    #this code is well written, automatically creates the data object
     else:
         print('Unsupported load trace file format')
         exit(-1)
-
+    print(train_data)
     return train_data, eval_data
 
 def train_command():

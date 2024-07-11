@@ -1,5 +1,16 @@
 from abc import ABC, abstractmethod
-
+from finaltransformer import TransforMAP
+import torch
+import torch.nn as nn
+import numpy as np 
+d_model = 512
+num_heads = 8
+drop_prob = 0.1
+batch_size = 30
+max_sequence_length = 200
+ffn_hidden = 1024
+num_layers = 5
+path='finaltransformer.py'
 class MLPrefetchModel(object):
     '''
     Abstract base class for your models. For HW-based approaches such as the
@@ -7,29 +18,99 @@ class MLPrefetchModel(object):
     models, you may want to use it as a wrapper, but alternative approaches
     are fine so long as the behavior described below is respected.
     '''
-
     @abstractmethod
-    def load(self, path):
-        '''
-        Loads your model from the filepath path
-        '''
+    def __init__(self):
+        self.model=TransforMAP
+        self.page_size=16
+        self.block_size=32
         pass
+
+    def load(self, path):
+        self.model = torch.load_state_dict(torch.load(path))
+
 
     @abstractmethod
     def save(self, path):
         '''
         Saves your model to the filepath path
+        
         '''
+    
+        torch.save(self.model.state_dict(), path)
         pass
+    def preprocessor(self, data):
+        input_features = []
+        labels = []
+        bitmaps = {}
 
+        for line in data:
+            instr_id, cycle_count, load_address, instr_ptr, llc_hit_miss = line
+            page = bin(load_address)[2:2+self.page_size]
+            block = bin(load_address)[2+self.page_size:2+self.page_size+self.block_size]
+
+            if page not in bitmaps:
+                bitmaps[page] = np.zeros(2 ** self.block_size, dtype=int)
+            
+            input_features.append((instr_id, page, block))
+            bitmaps[page][int(block, 2)] = 1 
+            labels.append(bitmaps[page].copy())
+        
+        return input_features, labels, bitmaps
+                
     @abstractmethod
+
     def train(self, data):
-        '''
+    #I will have to send bitmap(now i understand why bitmap is necessary, it will stop the model from 
+        # constantly predicting the same block for the same page) , the split address and the instruction ID.
+        #or I can do that splitting within this script, and later concatenate the answers.
+        #but that splitting is necessary for both.
+
+        #train model here.
+        #Now we want the input addresses to be transformed in such a way that they predict the next block. So split the block.
+
+
+        # So now the target labels for training are ready
+
+
+    # Tokenize and pad sequences
+        def pad_sequence(seq, max_length, pad_value=0):
+            return seq + [pad_value] * (max_length - len(seq))
+        input_features, labels, _=self.preprocessor(data)
+        max_length_input = max(len(str(page)) for _, page, _ in input_features)
+        tokenized_inputs = [pad_sequence([int(digit) for digit in str(page)], max_length_input) for _, page, _ in input_features]
+
+        tokenized_labels = [[int(digit) for digit in label] for label in labels]
+        print("Process ran until here 4")
+        X = torch.tensor(tokenized_inputs, dtype=torch.long)
+        y = torch.tensor(tokenized_labels, dtype=torch.long)
+
+        # Create DataLoader
+        dataset = torch.utils.data.TensorDataset(X, y)
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
+
+        # Training setup
+        criterion = nn.CrossEntropyLoss()
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
+
+        self.model.train()
+        for epoch in range(10):
+            for batch in dataloader:
+                inputs, targets = batch
+                optimizer.zero_grad()
+                outputs = self.model(inputs, inputs)  # Dummy target for training
+                loss = criterion(outputs.view(-1, outputs.shape[-1]), targets.view(-1))
+                loss.backward()
+                optimizer.step()
+            print(f'Epoch {epoch + 1}, Loss: {loss.item()}')
+                
+
+    '''
         Train your model here. No return value. The data parameter is in the
         same format as the load traces. Namely,
         Unique Instr Id, Cycle Count, Load Address, Instruction Pointer of the Load, LLC hit/miss
-        '''
-        pass
+    '''
+
+    pass
 
     @abstractmethod
     def generate(self, data):
@@ -49,45 +130,9 @@ class MLPrefetchModel(object):
         where A, B, and C are the unique instruction IDs and A1, A2 and C1 are
         the prefetch addresses.
         '''
+
         pass
 
-class NextLineModel(MLPrefetchModel):
-
-    def load(self, path):
-        # Load your pytorch / tensorflow model from the given filepath
-        print('Loading ' + path + ' for NextLineModel')
-
-    def save(self, path):
-        # Save your model to a file
-        print('Saving ' + path + ' for NextLineModel')
-
-    def train(self, data):
-        '''
-        Train your model here using the data
-
-        The data is the same format given in the load traces. Namely:
-        Unique Instr Id, Cycle Count, Load Address, Instruction Pointer of the Load, LLC hit/miss
-        '''
-        print('Training NextLineModel')
-
-    def generate(self, data):
-        '''
-        Generate the prefetches for the prefetch file for ChampSim here
-
-        As a reminder, no looking ahead in the data and no more than 2
-        prefetches per unique instruction ID
-
-        The return format for this function is a list of (instr_id, pf_addr)
-        tuples as shown below
-        '''
-        print('Generating for NextLineModel')
-        prefetches = []
-        for (instr_id, cycle_count, load_addr, load_ip, llc_hit) in data:
-            # Prefetch the next two blocks
-            prefetches.append((instr_id, ((load_addr >> 6) + 1) << 6))
-            prefetches.append((instr_id, ((load_addr >> 6) + 2) << 6))
-
-        return prefetches
 
 '''
 # Example PyTorch Model
@@ -163,4 +208,6 @@ class TerribleMLModel(MLPrefetchModel):
 '''
 
 # Replace this if you create your own model
-Model = NextLineModel
+Model=MLPrefetchModel
+#I suppose I will have to write a 'Prefetcher' class that is callable consifering the given data
+#Inputs will come as and when, and prediction will have to work in real time.

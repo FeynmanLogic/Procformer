@@ -1,3 +1,7 @@
+# The following is the explanation given on the website.
+I took the code, and tried to understand different modes of operation. It takes train, generate, evaluate modes.
+Class explosion problem in the Transformap has been elegantly dealt with, by predicting only the block number rather than everything else.
+
 # Modified ChampSim for ML Prefetching Competition
 
 We will use ChampSim to evaluate the effectiveness of your ML prefetchers.  You
