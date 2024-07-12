@@ -1,17 +1,17 @@
 from abc import ABC, abstractmethod
 from finaltransformer import TransforMAP
 import torch
+from torch.utils.data import DataLoader, TensorDataset
+import torch.nn.functional as F
 import torch.nn as nn
 import numpy as np 
 d_model = 40
 num_heads = 8
 drop_prob = 0.1
 batch_size = 1
-
 ffn_hidden = 1024
-num_layers = 5
-
-path='finaltransformer.py'
+num_layers = 6
+save_path='trained_model.pth'
 class MLPrefetchModel(object):
     '''
     Abstract base class for your models. For HW-based approaches such as the
@@ -21,18 +21,19 @@ class MLPrefetchModel(object):
     '''
     @abstractmethod
     def __init__(self):
-        self.model = TransforMAP(
-            d_model=d_model, num_heads=num_heads, num_layers=num_layers,
-            ffn_hidden=ffn_hidden, drop_prob=drop_prob
-        )
         self.page_size = 40
         self.block_size = 8
+        self.model = TransforMAP(
+            d_model=d_model, num_heads=num_heads, num_layers=num_layers,
+            ffn_hidden=ffn_hidden, drop_prob=drop_prob,block_size=self.block_size
+        )
+
         self.mask = None
 
-    def load_model(self, path):
+    def load(self, path):
         self.model.load_state_dict(torch.load(path))
 
-    def save_model(self, path):
+    def save(self, path):
         torch.save(self.model.state_dict(), path)
 
     def _create_mask(self, max_length):
@@ -45,7 +46,7 @@ class MLPrefetchModel(object):
 
     def preprocessor(self, data):
         input_features = []
-        labels = []
+        labelslist = []
         bitmaps = {}
         max_seqeunce_length=len(data)
         for line in data:
@@ -58,59 +59,64 @@ class MLPrefetchModel(object):
             
             input_features.append((instr_id, page, block))
             bitmaps[page][int(block, 2)] = 1 
-            labels.append(bitmaps[page].copy())
-        
-        return input_features, labels, bitmaps,max_seqeunce_length
+
+        labels_tensor = torch.zeros((1, max_seqeunce_length, 2 ** self.block_size), dtype=torch.float32)
+        for i, line in enumerate(data):
+            _, _, load_address, _, _ = line
+            page = bin(load_address)[2:2 + self.page_size]
+            block = bin(load_address)[2 + self.page_size:2 + self.page_size + self.block_size]
+
+            label_idx = int(block, 2)
+            labels_tensor[0, i, label_idx] = 1.0  # Set the corresponding block bit to 1
+
+
+        return input_features, labelslist, bitmaps,max_seqeunce_length,labels_tensor
                 
     @abstractmethod
 
+
     def train(self, data):
+        class CustomLearningRateScheduler:
+                def __init__(self, optimizer, d_model, warmup_steps=2000):
+                    self.optimizer = optimizer
+                    self.warmup_steps = warmup_steps
+                    self.d_model = d_model
+                    self.current_step = 0
+                def step(self):
+                    self.current_step += 1
+                    lr = self.d_model ** -0.5 * min(self.current_step ** -0.5, self.current_step * self.warmup_steps ** -1.5)
+                    for param_group in self.optimizer.param_groups:
+                        param_group['lr'] = lr
+                def zero_grad(self):
+                    self.optimizer.zero_grad()
+
+                def step_optimizer(self):
+                    self.optimizer.step()
     #I will have to send bitmap(now i understand why bitmap is necessary, it will stop the model from 
         # constantly predicting the same block for the same page) , the split address and the instruction ID.
         #or I can do that splitting within this script, and later concatenate the answers.
         #but that splitting is necessary for both.
-
         #train model here.
         #Now we want the input addresses to be transformed in such a way that they predict the next block. So split the block.
-
-
         # So now the target labels for training are ready
-
-        input_features, labels, _, max_sequence_length = self.preprocessor(data)
-
+        input_features, labelslist, _, max_sequence_length,labels = self.preprocessor(data)
         tokenized_inputs = [[int(digit) for digit in str(page)] for _, page, _ in input_features]
-        tokenized_labels = [torch.tensor(label, dtype=torch.long) for label in labels]
-
-        X = torch.tensor(tokenized_inputs, dtype=torch.long)
-        y = torch.stack(tokenized_labels)
-    
-    # Debug: Print shapes
+        X = torch.tensor(tokenized_inputs, dtype=torch.float)
         print("Shape of X before adding batch dimension:", X.shape)
-        print("Shape of y:", y.shape)
-
-    # Add a batch dimension if it is missing
-        if len(X.size()) == 2:
-            X = X.unsqueeze(0)
-    
-    # Debug: Print shapes after adding batch dimension
+        print("Shape of y:", labels.shape)
+        X=X.unsqueeze(0)
         print("Shape of X after adding batch dimension:", X.shape)
-        print("Shape of y:", y.shape)
-    
-    # Ensure y also has the batch dimension
-        if len(y.size()) == 2:
-            y = y.unsqueeze(0)
-    
-    # Debug: Print shapes after ensuring y batch dimension
-        print("Shape of X:", X.shape)
-        print("Shape of y after ensuring batch dimension:", y.shape)
-        X=X.float()
-    # Create DataLoader
-        dataset = torch.utils.data.TensorDataset(X, y)
-        dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
-    
+        print("Shape of y:", labels.shape)
+        if X.size(0) != labels.size(0):
+            raise ValueError(f"Batch size mismatch: X has {X.size(0)}, y has {labels.size(0)}")
+        dataset = TensorDataset(X, labels)
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
+
     # Training setup
         criterion = nn.CrossEntropyLoss()
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
+        optimizer = torch.optim.Adam(self.model.parameters(), betas=(0.9, 0.98), eps=1e-9)
+        scheduler = CustomLearningRateScheduler(optimizer, d_model=d_model, warmup_steps=2000)
+
         if self.mask is None:
             self.mask=self._create_mask(max_sequence_length)
         self.model.train()
@@ -118,12 +124,27 @@ class MLPrefetchModel(object):
             for batch in dataloader:
                 inputs, targets = batch
                 optimizer.zero_grad()
+                targets_flat = targets.view(-1,targets.shape[-1])
+
+
+                print("Size of targets_flat is",targets_flat.size())
                 outputs = self.model(inputs, inputs,self.mask)  # Dummy target for training
-                loss = criterion(outputs.view(-1, outputs.shape[-1]), targets.view(-1))
+                outputs_flat = outputs.view(-1, outputs.shape[-1])
+                if torch.isnan(inputs).any():
+                    print("NaN detected in inputs")
+                if torch.isnan(outputs).any():
+                    print("NaN detected in outputs")
+                if torch.isnan(targets).any():
+                    print("NaN detected in targets")
+                print("Size of outputs_flat is",outputs_flat.size())
+                loss = criterion(outputs.view(-1, outputs.shape[-1]), targets.view(-1,targets.shape[-1]))
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
                 optimizer.step()
+                scheduler.step()
                 print(f'Epoch {epoch + 1}, Loss: {loss.item()}')
-                
+        self.save(save_path)
+        print(f'Model saved to {save_path}')
 
     '''
         Train your model here. No return value. The data parameter is in the
@@ -151,9 +172,27 @@ class MLPrefetchModel(object):
         where A, B, and C are the unique instruction IDs and A1, A2 and C1 are
         the prefetch addresses.
         '''
+        print(data)
+        input_features,_,_,max_sequence_length,_=self.preprocessor(data)
+        prefetches=[]
+        if self.mask==None:
+            self.mask=self._create_mask(self,max_sequence_length)
+        self.model.eval()
+        
+        tokenized_inputs = [[int(digit) for digit in str(page)] for _, page, _ in input_features]
+        X = torch.tensor(tokenized_inputs, dtype=torch.float).unsqueeze(0)
 
-        pass
+        with torch.no_grad():
+            outputs = self.model(X, X, self.mask)
+            probs = F.softmax(outputs, dim=-1)
+            for idx, (instruction_id, page, _) in enumerate(input_features):
+                top2_blocks = torch.topk(probs[0, idx], 2).indices
+                for block_idx in top2_blocks:
+                    block_str = format(block_idx.item(), f'0{self.block_size}b')
+                    prefetch_address = int(page + block_str, 2)
+                    prefetches.append((instruction_id, prefetch_address))
 
+        return prefetches
 
 '''
 # Example PyTorch Model

@@ -35,7 +35,7 @@ def scaled_dot_product(q,k,v,mask=None):
     scaled=torch.matmul(q,k.transpose(-2,-1))/math.sqrt(d_k)
     if mask is not None:
         scaled=scaled+mask
-    attention=F.softmax(scaled)
+    attention=F.softmax(scaled,dim=-1)
     values=torch.matmul(attention,v)
     return values, attention
 class PositionwiseFeedForward(nn.Module):
@@ -255,18 +255,20 @@ class Decoder(nn.Module):
         return y #30 x 200 x 512
 
 class TransforMAP(nn.Module):
-    def __init__(self, d_model, ffn_hidden, num_heads, drop_prob, num_layers):
+    def __init__(self, d_model, ffn_hidden, num_heads, drop_prob, num_layers, block_size):
         super().__init__()
         self.encoder = Encoder(d_model, ffn_hidden, num_heads, drop_prob, num_layers)
         self.decoder = Decoder(d_model, ffn_hidden, num_heads, drop_prob, num_layers)
-        self.linear = nn.Linear(d_model, d_model)
-
+        self.linear = nn.Linear(d_model, 2**block_size)
+        self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, x, y, mask):
 
         encoder_output = self.encoder(x)
         decoder_output = self.decoder(encoder_output, y, mask)
-        output = self.linear(decoder_output)
-        answer=F.softmax(output)
-        return answer
+        logits = self.linear(decoder_output)
+        print("Size of final output from transfromer is ")
+        print(logits.size())
+
+        return logits
 

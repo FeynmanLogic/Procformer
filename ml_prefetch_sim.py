@@ -369,6 +369,8 @@ def read_load_trace_data(load_trace, num_prefetch_warmup_instructions):
 
     train_data = []
     eval_data = []
+    x=0
+    j=0
     if load_trace.endswith('.txt'):
         with open(load_trace, 'r') as f:
             for i, line in enumerate(f):
@@ -377,8 +379,10 @@ def read_load_trace_data(load_trace, num_prefetch_warmup_instructions):
                 pline = process_line(line)
                 if pline[0] < num_prefetch_warmup_instructions * 10000:
                     train_data.append(pline)
-                else:
+                    x+=1
+                elif j!=x:
                     eval_data.append(pline)
+                    j+=1
     elif load_trace.endswith('.txt.xz'):
         import lzma
         with lzma.open(load_trace, mode='rt', encoding='utf-8') as f:
@@ -386,9 +390,9 @@ def read_load_trace_data(load_trace, num_prefetch_warmup_instructions):
                 if line.startswith('***') or line.startswith('Read'):
                     continue
                 pline = process_line(line)
-                if pline[0] < num_prefetch_warmup_instructions * 10000:
+                if pline[0] < num_prefetch_warmup_instructions * 100000:
                     train_data.append(pline)
-                else:
+                elif pline[0]<num_prefetch_warmup_instructions*200000:
                     eval_data.append(pline)
                     #this code is well written, automatically creates the data object
     else:
