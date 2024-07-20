@@ -5,12 +5,12 @@ from torch.utils.data import DataLoader, TensorDataset
 import torch.nn.functional as F
 import torch.nn as nn
 import numpy as np 
-d_model = 40
+d_model = 40 #d_model is same as page size, intuiticwek
 num_heads = 8
 drop_prob = 0.1
 batch_size = 1
 ffn_hidden = 1024
-num_layers = 6
+num_layers = 5
 save_path='trained_model.pth'
 class MLPrefetchModel(object):
     '''
