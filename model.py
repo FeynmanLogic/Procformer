@@ -7,14 +7,14 @@ import torch.nn as nn
 import numpy as np 
 TOTAL_BITS = 64
 BLOCK_BITS = 6
-PAGE_BITS = 12
+PAGE_BITS = 42
 BLOCK_NUM_BITS = TOTAL_BITS - BLOCK_BITS
 SPLIT_BITS = 6
 LOOK_BACK = 5
 PRED_FORWARD = 2
 BITMAP_SIZE = 2 ** (PAGE_BITS - BLOCK_BITS)
-d_model = 40 #d_model is same as page size, intuiticwek
-num_heads = 8
+d_model = 42 #d_model is same as page size, intuiticwek
+num_heads = 7
 drop_prob = 0.1
 batch_size = 1
 ffn_hidden = 1024

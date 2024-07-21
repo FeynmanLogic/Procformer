@@ -1648,6 +1648,7 @@ void O3_CPU::execute_store(uint32_t rob_index, uint32_t sq_index, uint32_t data_
                             cerr << " does not match to the store instr_id: " << SQ.entry[sq_index].instr_id << endl;
                             assert(0);
                         }
+                        
 #endif
                         // update correspodning LQ entry
                         LQ.entry[lq_index].physical_address = (SQ.entry[sq_index].physical_address & ~(uint64_t) ((1 << LOG2_BLOCK_SIZE) - 1)) | (LQ.entry[lq_index].virtual_address & ((1 << LOG2_BLOCK_SIZE) - 1));
