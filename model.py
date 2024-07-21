@@ -5,6 +5,14 @@ from torch.utils.data import DataLoader, TensorDataset
 import torch.nn.functional as F
 import torch.nn as nn
 import numpy as np 
+TOTAL_BITS = 64
+BLOCK_BITS = 6
+PAGE_BITS = 12
+BLOCK_NUM_BITS = TOTAL_BITS - BLOCK_BITS
+SPLIT_BITS = 6
+LOOK_BACK = 5
+PRED_FORWARD = 2
+BITMAP_SIZE = 2 ** (PAGE_BITS - BLOCK_BITS)
 d_model = 40 #d_model is same as page size, intuiticwek
 num_heads = 8
 drop_prob = 0.1
@@ -21,8 +29,8 @@ class MLPrefetchModel(object):
     '''
     @abstractmethod
     def __init__(self):
-        self.page_size = 40
-        self.block_size = 8
+        self.page_size = PAGE_BITS
+        self.block_size = BLOCK_BITS
         self.model = TransforMAP(
             d_model=d_model, num_heads=num_heads, num_layers=num_layers,
             ffn_hidden=ffn_hidden, drop_prob=drop_prob,block_size=self.block_size
