@@ -342,7 +342,7 @@ def eval_command():
         d = traces[trace]
         if 'no' in d:
             stats.append(compute_stats(trace, d['no'], baseline_name='no'))
-            stats.append(compute_stats(trace, d['prefetch'], d['no'], baseline_name='yours'))
+            
         else:
             stats.append(compute_stats(trace, d['prefetch'], baseline_name='No Baseline'))
         for fn in baseline_fns:
@@ -377,7 +377,7 @@ def read_load_trace_data(load_trace, num_prefetch_warmup_instructions):
                 if line.startswith('***') or line.startswith('Read'):
                     continue
                 pline = process_line(line)
-                if pline[0] < num_prefetch_warmup_instructions * 10000:
+                if pline[0] < num_prefetch_warmup_instructions * 20000:
                     train_data.append(pline)
                     x+=1
                 elif j!=x:

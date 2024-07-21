@@ -1,0 +1,4 @@
+Trace,Baseline,Accuracy,Coverage,MPKI,MPKI_Improvement,IPC,IPC_Improvement
+482.sphinx3-s2.trace.gz,no,N/A,0.0,13.340873333333333,N/A,0.590628,N/A
+482.sphinx3-s2.trace.gz,bo,71.61560744009182,69.10460136307613,4.146053333333334,68.96051762749408,0.976363,65.3092978998625
+482.sphinx3-s2.trace.gz-from_file.txt,No Baseline,N/A,0.0,13.340873333333333,N/A,0.590628,N/A
