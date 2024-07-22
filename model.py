@@ -16,7 +16,7 @@ BITMAP_SIZE = 2 ** (PAGE_BITS - BLOCK_BITS)
 d_model = 42 #d_model is same as page size, intuiticwek
 num_heads = 7
 drop_prob = 0.1
-batch_size = 1
+batch_size = 42
 ffn_hidden = 1024
 num_layers = 5
 save_path='trained_model.pth'
@@ -52,54 +52,43 @@ class MLPrefetchModel(object):
 
     @abstractmethod
 
-    def preprocessor(self, data):
-        input_features = []
-        labelslist = []
-        bitmaps = {}
-        max_seqeunce_length=len(data)
-        for line in data:
-            instr_id, cycle_count, load_address, instr_ptr, llc_hit_miss = line
-            page = bin(load_address)[2:2+self.page_size]
-            block = bin(load_address)[2+self.page_size:2+self.page_size+self.block_size]
+    def preprocessor(self, data, batch_size):
+        num_batches = len(data) // batch_size + (1 if len(data) % batch_size != 0 else 0)
+        for i in range(num_batches):
+            batch_data = data[i * batch_size:(i + 1) * batch_size]
+            input_features = []
+            bitmaps = {}
+            print("Length of batch data is",len(batch_data))
+            print(batch_data)
+            x=0
+            for line in batch_data:
+                instr_id, cycle_count, load_address, instr_ptr, llc_hit_miss = line
 
-            if page not in bitmaps:
-                bitmaps[page] = np.zeros(2 ** self.block_size, dtype=int)
-            
-            input_features.append((instr_id, page, block))
-            bitmaps[page][int(block, 2)] = 1 
+                page = bin(load_address)[2:2 + self.page_size]
+                block = bin(load_address)[2 + self.page_size:2 + self.page_size + self.block_size]
+                if x==0:
+                    print(page)
+                    print(block)
+                if page not in bitmaps:
+                    bitmaps[page] = np.zeros(2 ** self.block_size, dtype=int)
 
-        labels_tensor = torch.zeros((1, max_seqeunce_length, 2 ** self.block_size), dtype=torch.float32)
-        for i, line in enumerate(data):
-            _, _, load_address, _, _ = line
-            page = bin(load_address)[2:2 + self.page_size]
-            block = bin(load_address)[2 + self.page_size:2 + self.page_size + self.block_size]
+                input_features.append((instr_id, page, block))
+                bitmaps[page][int(block, 2)] = 1
+                x+=1
+            max_sequence_length = len(batch_data)
+            labels_tensor = torch.zeros((1, max_sequence_length, 2 ** self.block_size), dtype=torch.float32)
+            for j, line in enumerate(batch_data):
+                _, _, load_address, _, _ = line
+                page = bin(load_address)[2:2 + self.page_size]
+                block = bin(load_address)[2 + self.page_size:2 + self.page_size + self.block_size]
 
-            label_idx = int(block, 2)
-            labels_tensor[0, i, label_idx] = 1.0  # Set the corresponding block bit to 1
+                label_idx = int(block, 2)
+                labels_tensor[0, j, label_idx] = 1.0  # Set the corresponding block bit to 1
 
-
-        return input_features, labelslist, bitmaps,max_seqeunce_length,labels_tensor
+            yield input_features, labels_tensor
                 
     @abstractmethod
 
-
-    def train(self, data):
-        class CustomLearningRateScheduler:
-                def __init__(self, optimizer, d_model, warmup_steps=2000):
-                    self.optimizer = optimizer
-                    self.warmup_steps = warmup_steps
-                    self.d_model = d_model
-                    self.current_step = 0
-                def step(self):
-                    self.current_step += 1
-                    lr = self.d_model ** -0.5 * min(self.current_step ** -0.5, self.current_step * self.warmup_steps ** -1.5)
-                    for param_group in self.optimizer.param_groups:
-                        param_group['lr'] = lr
-                def zero_grad(self):
-                    self.optimizer.zero_grad()
-
-                def step_optimizer(self):
-                    self.optimizer.step()
     #I will have to send bitmap(now i understand why bitmap is necessary, it will stop the model from 
         # constantly predicting the same block for the same page) , the split address and the instruction ID.
         #or I can do that splitting within this script, and later concatenate the answers.
@@ -107,49 +96,60 @@ class MLPrefetchModel(object):
         #train model here.
         #Now we want the input addresses to be transformed in such a way that they predict the next block. So split the block.
         # So now the target labels for training are ready
-        input_features, labelslist, _, max_sequence_length,labels = self.preprocessor(data)
-        tokenized_inputs = [[int(digit) for digit in str(page)] for _, page, _ in input_features]
-        X = torch.tensor(tokenized_inputs, dtype=torch.float)
-        print("Shape of X before adding batch dimension:", X.shape)
-        print("Shape of y:", labels.shape)
-        X=X.unsqueeze(0)
-        print("Shape of X after adding batch dimension:", X.shape)
-        print("Shape of y:", labels.shape)
-        if X.size(0) != labels.size(0):
-            raise ValueError(f"Batch size mismatch: X has {X.size(0)}, y has {labels.size(0)}")
-        dataset = TensorDataset(X, labels)
-        dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
 
-    # Training setup
+    def train(self, data, batch_size=64):
+        class CustomLearningRateScheduler:
+            def __init__(self, optimizer, d_model, warmup_steps=2000):
+                self.optimizer = optimizer
+                self.warmup_steps = warmup_steps
+                self.d_model = d_model
+                self.current_step = 0
+
+            def step(self):
+                self.current_step += 1
+                lr = self.d_model ** -0.5 * min(self.current_step ** -0.5, self.current_step * self.warmup_steps ** -1.5)
+                for param_group in self.optimizer.param_groups:
+                     param_group['lr'] = lr
+
+            def zero_grad(self):
+                self.optimizer.zero_grad()
+
+            def step_optimizer(self):
+                self.optimizer.step()
+
         criterion = nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(self.model.parameters(), betas=(0.9, 0.98), eps=1e-9)
         scheduler = CustomLearningRateScheduler(optimizer, d_model=d_model, warmup_steps=2000)
 
-        if self.mask is None:
-            self.mask=self._create_mask(max_sequence_length)
         self.model.train()
         for epoch in range(10):
-            for batch in dataloader:
-                inputs, targets = batch
-                optimizer.zero_grad()
-                targets_flat = targets.view(-1,targets.shape[-1])
+            for input_features, labels in self.preprocessor(data, batch_size):
+                print("input features are",input_features)
+                tokenized_inputs = [[int(digit) for digit in str(page).zfill(d_model)] for _, page, _ in input_features]
+                print("size of tokenized inputs is",len(tokenized_inputs))
+                X = torch.tensor(tokenized_inputs, dtype=torch.float).unsqueeze(0)
+                print("size of x is", X.size())
+                print("size of labels is",labels.size())
+                dataset = TensorDataset(X, labels)
+                dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
 
+                if self.mask is None:
+                    self.mask = self._create_mask(labels.size(1))
 
-                print("Size of targets_flat is",targets_flat.size())
-                outputs = self.model(inputs, inputs,self.mask)  # Dummy target for training
-                outputs_flat = outputs.view(-1, outputs.shape[-1])
-                if torch.isnan(inputs).any():
-                    print("NaN detected in inputs")
-                if torch.isnan(outputs).any():
-                    print("NaN detected in outputs")
-                if torch.isnan(targets).any():
-                    print("NaN detected in targets")
-                print("Size of outputs_flat is",outputs_flat.size())
-                loss = criterion(outputs.view(-1, outputs.shape[-1]), targets.view(-1,targets.shape[-1]))
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-                optimizer.step()
-                scheduler.step()
+                for batch in dataloader:
+                    inputs, targets = batch
+                    optimizer.zero_grad()
+                    targets_flat = targets.view(-1, targets.shape[-1])
+                    print("Dimensions of input is",inputs.size())
+                    
+                    outputs = self.model(inputs, inputs, self.mask)
+                    outputs_flat = outputs.view(-1, outputs.shape[-1])
+                    loss = criterion(outputs_flat, targets_flat)
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                    optimizer.step()
+                    scheduler.step()
+
                 print(f'Epoch {epoch + 1}, Loss: {loss.item()}')
         self.save(save_path)
         print(f'Model saved to {save_path}')

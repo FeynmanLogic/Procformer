@@ -1,16 +1,25 @@
 import torch
 import torch.nn as nn
 import math
-import torch.nn.functional as F
 
 def scaled_dot_product(q, k, v, mask=None):
-    d_k = q.size()[-1]
-    scaled = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(d_k)
+    d_k = q.size(-1)
+    scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(d_k)
+    print(f"Scores: {scores.size()}")
     if mask is not None:
-        scaled = scaled + mask
-    attention = F.softmax(scaled, dim=-1)
-    values = torch.matmul(attention, v)
-    return values, attention
+        print(f"Mask before: {mask.size()}")
+        if mask.dim() == 3:
+            mask = mask.unsqueeze(1)
+        elif mask.dim() == 2:
+            mask = mask.unsqueeze(1).unsqueeze(2)
+        print(f"Mask after adjustment: {mask.size()}")
+        scores = scores.masked_fill(mask == 0, float('-inf'))
+        print(f"Masked Scores: {scores.size()}")
+    attention = torch.nn.functional.softmax(scores, dim=-1)
+    print(f"Attention: {attention.size()}")
+    output = torch.matmul(attention, v)
+    print(f"Output: {output.size()}")
+    return output, attention
 
 class PositionwiseFeedForward(nn.Module):
     def __init__(self, d_model, hidden, drop_prob):
@@ -33,6 +42,7 @@ class MultiHeadCrossAttention(nn.Module):
         self.d_model = d_model
         self.num_heads = num_heads
         self.head_dim = d_model // num_heads
+        assert self.head_dim * num_heads == d_model, "d_model must be divisible by num_heads"
         self.kv_layer = nn.Linear(d_model, 2 * d_model)
         self.q_layer = nn.Linear(d_model, d_model)
         self.linear_layer = nn.Linear(d_model, d_model)
@@ -40,15 +50,24 @@ class MultiHeadCrossAttention(nn.Module):
     def forward(self, x, y, mask=None):
         batch_size, sequence_length, d_model = x.size()
         kv = self.kv_layer(x)
+        print(f"KV layer output: {kv.size()}")
         q = self.q_layer(y)
-        kv = kv.reshape(batch_size, sequence_length, self.num_heads, 2 * self.head_dim)
-        q = q.reshape(batch_size, sequence_length, self.num_heads, self.head_dim)
+        print(f"Q layer output: {q.size()}")
+        kv = kv.view(batch_size, sequence_length, self.num_heads, 2 * self.head_dim)
+        q = q.view(batch_size, sequence_length, self.num_heads, self.head_dim)
+        print(f"KV reshaped: {kv.size()}")
+        print(f"Q reshaped: {q.size()}")
         kv = kv.permute(0, 2, 1, 3)
         q = q.permute(0, 2, 1, 3)
+        print(f"KV permuted: {kv.size()}")
+        print(f"Q permuted: {q.size()}")
         k, v = kv.chunk(2, dim=-1)
+        print(f"K: {k.size()}, V: {v.size()}")
         values, attention = scaled_dot_product(q, k, v, mask)
-        values = values.permute(0, 2, 1, 3).reshape(batch_size, sequence_length, d_model)
+        values = values.permute(0, 2, 1, 3).reshape(batch_size, sequence_length, -1)
+        print(f"Values permuted and reshaped: {values.size()}")
         out = self.linear_layer(values)
+        print(f"Output linear layer: {out.size()}")
         return out
 
 class PositionalEncoding(nn.Module):
@@ -74,17 +93,18 @@ class MultiHeadAttention(nn.Module):
         self.d_model = d_model
         self.num_heads = num_heads
         self.head_dim = d_model // num_heads
+        assert self.head_dim * num_heads == d_model, "d_model must be divisible by num_heads"
         self.qkv_layer = nn.Linear(d_model, 3 * d_model)
         self.linear_layer = nn.Linear(d_model, d_model)
 
     def forward(self, x, mask=None):
         batch_size, max_sequence_length, d_model = x.size()
         qkv = self.qkv_layer(x)
-        qkv = qkv.reshape(batch_size, max_sequence_length, self.num_heads, 3 * self.head_dim)
+        qkv = qkv.view(batch_size, max_sequence_length, self.num_heads, 3 * self.head_dim)
         qkv = qkv.permute(0, 2, 1, 3)
         q, k, v = qkv.chunk(3, dim=-1)
         values, attention = scaled_dot_product(q, k, v, mask)
-        values = values.permute(0, 2, 1, 3).reshape(batch_size, max_sequence_length, self.num_heads * self.head_dim)
+        values = values.permute(0, 2, 1, 3).reshape(batch_size, max_sequence_length, -1)
         out = self.linear_layer(values)
         return out
 
