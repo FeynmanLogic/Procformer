@@ -1,0 +1,4 @@
+Current problem I am facing is that,
+currently after masked self attention you getting size torch.Size([1, 64, 2688])
+2688=64*42
+some dumb error that I need to spot

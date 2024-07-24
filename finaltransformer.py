@@ -1,26 +1,31 @@
 import torch
 import torch.nn as nn
 import math
+import torch.nn.functional as F
 
 def scaled_dot_product(q, k, v, mask=None):
     d_k = q.size(-1)
-    scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(d_k)
-    print(f"Scores: {scores.size()}")
-    if mask is not None:
-        print(f"Mask before: {mask.size()}")
-        if mask.dim() == 3:
-            mask = mask.unsqueeze(1)
-        elif mask.dim() == 2:
-            mask = mask.unsqueeze(1).unsqueeze(2)
-        print(f"Mask after adjustment: {mask.size()}")
-        scores = scores.masked_fill(mask == 0, float('-inf'))
-        print(f"Masked Scores: {scores.size()}")
-    attention = torch.nn.functional.softmax(scores, dim=-1)
-    print(f"Attention: {attention.size()}")
-    output = torch.matmul(attention, v)
-    print(f"Output: {output.size()}")
-    return output, attention
+    scaled = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(d_k)
+    print(f"Scaled shape: {scaled.shape}")
 
+    if mask is not None:
+        # Adjust the mask to match the batch size
+        batch_size = q.size(0)
+        mask = mask[:batch_size, :scaled.size(-1)]
+        print(f"Mask shape before unsqueeze: {mask.shape}")
+        mask = mask.unsqueeze(1).unsqueeze(2)  # Add extra dimensions for broadcasting
+        print(f"Mask shape after unsqueeze: {mask.shape}")
+        
+        # Apply the mask with masked_fill, where mask==0, set the values to -inf
+        scaled = scaled.masked_fill(mask == 0, float('-inf'))
+        print(f"Scaled after masking: {scaled}")
+        
+    attention = F.softmax(scaled, dim=-1)
+    values = torch.matmul(attention, v)
+    
+    return values, attention
+
+# Other classes remain unchanged
 class PositionwiseFeedForward(nn.Module):
     def __init__(self, d_model, hidden, drop_prob):
         super(PositionwiseFeedForward, self).__init__()
@@ -50,26 +55,16 @@ class MultiHeadCrossAttention(nn.Module):
     def forward(self, x, y, mask=None):
         batch_size, sequence_length, d_model = x.size()
         kv = self.kv_layer(x)
-        print(f"KV layer output: {kv.size()}")
         q = self.q_layer(y)
-        print(f"Q layer output: {q.size()}")
         kv = kv.view(batch_size, sequence_length, self.num_heads, 2 * self.head_dim)
         q = q.view(batch_size, sequence_length, self.num_heads, self.head_dim)
-        print(f"KV reshaped: {kv.size()}")
-        print(f"Q reshaped: {q.size()}")
         kv = kv.permute(0, 2, 1, 3)
         q = q.permute(0, 2, 1, 3)
-        print(f"KV permuted: {kv.size()}")
-        print(f"Q permuted: {q.size()}")
         k, v = kv.chunk(2, dim=-1)
-        print(f"K: {k.size()}, V: {v.size()}")
         values, attention = scaled_dot_product(q, k, v, mask)
         values = values.permute(0, 2, 1, 3).reshape(batch_size, sequence_length, -1)
-        print(f"Values permuted and reshaped: {values.size()}")
         out = self.linear_layer(values)
-        print(f"Output linear layer: {out.size()}")
         return out
-
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, max_sequence_length):
         super().__init__()
@@ -99,13 +94,24 @@ class MultiHeadAttention(nn.Module):
 
     def forward(self, x, mask=None):
         batch_size, max_sequence_length, d_model = x.size()
+        assert d_model == self.d_model, f"Input feature dimension ({d_model}) does not match model dimension ({self.d_model})"
+        
+        # Linear transformation and splitting into Q, K, V
         qkv = self.qkv_layer(x)
         qkv = qkv.view(batch_size, max_sequence_length, self.num_heads, 3 * self.head_dim)
         qkv = qkv.permute(0, 2, 1, 3)
+        
         q, k, v = qkv.chunk(3, dim=-1)
+
+        # Scaled dot-product attention
         values, attention = scaled_dot_product(q, k, v, mask)
+        
+        # Rearrange the output
         values = values.permute(0, 2, 1, 3).reshape(batch_size, max_sequence_length, -1)
+        
+        # Final linear layer
         out = self.linear_layer(values)
+        
         return out
 
 class LayerNormalization(nn.Module):
@@ -194,10 +200,10 @@ class SequentialDecoder(nn.Sequential):
 class Decoder(nn.Module):
     def __init__(self, d_model, ffn_hidden, num_heads, drop_prob, num_layers=1):
         super().__init__()
-        self.layers = SequentialDecoder(*[DecoderLayer(d_model, ffn_hidden, num_heads, drop_prob) 
+        self.layers = SequentialDecoder(*[DecoderLayer(d_model, ffn_hidden, num_heads, drop_prob)
                                           for _ in range(num_layers)])
 
-    def forward(self, x, y, mask):
+    def forward(self, x, y, mask=None):
         y = self.layers(x, y, mask)
         return y
 
@@ -209,7 +215,7 @@ class TransforMAP(nn.Module):
         self.linear = nn.Linear(d_model, 2**block_size)
         self.softmax = nn.Softmax(dim=-1)
 
-    def forward(self, x, y, mask):
+    def forward(self, x, y, mask=None):
         encoder_output = self.encoder(x)
         decoder_output = self.decoder(encoder_output, y, mask)
         logits = self.linear(decoder_output)

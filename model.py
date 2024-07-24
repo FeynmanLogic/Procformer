@@ -124,9 +124,10 @@ class MLPrefetchModel(object):
         self.model.train()
         for epoch in range(10):
             for input_features, labels in self.preprocessor(data, batch_size):
+
                 print("input features are",input_features)
                 tokenized_inputs = [[int(digit) for digit in str(page).zfill(d_model)] for _, page, _ in input_features]
-                print("size of tokenized inputs is",len(tokenized_inputs))
+                print("size of first of inputs is",len(tokenized_inputs[0]))
                 X = torch.tensor(tokenized_inputs, dtype=torch.float).unsqueeze(0)
                 print("size of x is", X.size())
                 print("size of labels is",labels.size())
