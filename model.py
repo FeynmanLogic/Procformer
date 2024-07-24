@@ -18,6 +18,7 @@ num_heads = 7
 drop_prob = 0.1
 batch_size = 42
 ffn_hidden = 1024
+batch_size=3000
 num_layers = 5
 save_path='trained_model.pth'
 class MLPrefetchModel(object):
@@ -58,17 +59,15 @@ class MLPrefetchModel(object):
             batch_data = data[i * batch_size:(i + 1) * batch_size]
             input_features = []
             bitmaps = {}
-            print("Length of batch data is",len(batch_data))
-            print(batch_data)
+
+
             x=0
             for line in batch_data:
                 instr_id, cycle_count, load_address, instr_ptr, llc_hit_miss = line
 
                 page = bin(load_address)[2:2 + self.page_size]
                 block = bin(load_address)[2 + self.page_size:2 + self.page_size + self.block_size]
-                if x==0:
-                    print(page)
-                    print(block)
+
                 if page not in bitmaps:
                     bitmaps[page] = np.zeros(2 ** self.block_size, dtype=int)
 
@@ -97,7 +96,7 @@ class MLPrefetchModel(object):
         #Now we want the input addresses to be transformed in such a way that they predict the next block. So split the block.
         # So now the target labels for training are ready
 
-    def train(self, data, batch_size=64):
+    def train(self, data):
         class CustomLearningRateScheduler:
             def __init__(self, optimizer, d_model, warmup_steps=2000):
                 self.optimizer = optimizer
@@ -125,12 +124,11 @@ class MLPrefetchModel(object):
         for epoch in range(10):
             for input_features, labels in self.preprocessor(data, batch_size):
 
-                print("input features are",input_features)
+
                 tokenized_inputs = [[int(digit) for digit in str(page).zfill(d_model)] for _, page, _ in input_features]
-                print("size of first of inputs is",len(tokenized_inputs[0]))
+
                 X = torch.tensor(tokenized_inputs, dtype=torch.float).unsqueeze(0)
-                print("size of x is", X.size())
-                print("size of labels is",labels.size())
+
                 dataset = TensorDataset(X, labels)
                 dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
 
@@ -141,7 +139,7 @@ class MLPrefetchModel(object):
                     inputs, targets = batch
                     optimizer.zero_grad()
                     targets_flat = targets.view(-1, targets.shape[-1])
-                    print("Dimensions of input is",inputs.size())
+
                     
                     outputs = self.model(inputs, inputs, self.mask)
                     outputs_flat = outputs.view(-1, outputs.shape[-1])
@@ -151,7 +149,7 @@ class MLPrefetchModel(object):
                     optimizer.step()
                     scheduler.step()
 
-                print(f'Epoch {epoch + 1}, Loss: {loss.item()}')
+            print(f'Epoch {epoch + 1}, Loss: {loss.item()}')
         self.save(save_path)
         print(f'Model saved to {save_path}')
 
@@ -181,25 +179,25 @@ class MLPrefetchModel(object):
         where A, B, and C are the unique instruction IDs and A1, A2 and C1 are
         the prefetch addresses.
         '''
-        print(data)
-        input_features,_,_,max_sequence_length,_=self.preprocessor(data)
-        prefetches=[]
-        if self.mask==None:
-            self.mask=self._create_mask(self,max_sequence_length)
-        self.model.eval()
-        
-        tokenized_inputs = [[int(digit) for digit in str(page)] for _, page, _ in input_features]
-        X = torch.tensor(tokenized_inputs, dtype=torch.float).unsqueeze(0)
 
-        with torch.no_grad():
-            outputs = self.model(X, X, self.mask)
-            probs = F.softmax(outputs, dim=-1)
-            for idx, (instruction_id, page, _) in enumerate(input_features):
-                top2_blocks = torch.topk(probs[0, idx], 2).indices
-                for block_idx in top2_blocks:
-                    block_str = format(block_idx.item(), f'0{self.block_size}b')
-                    prefetch_address = int(page + block_str, 2)
-                    prefetches.append((instruction_id, prefetch_address))
+        prefetches = []
+        for input_features, _ in self.preprocessor(data, batch_size):
+            tokenized_inputs = [[int(digit) for digit in str(page).zfill(d_model)] for _, page, _ in input_features]
+            X = torch.tensor(tokenized_inputs, dtype=torch.float).unsqueeze(0)
+
+            if self.mask is None:
+                self.mask = self._create_mask(X.size(1))
+
+            with torch.no_grad():
+                outputs = self.model(X, X, self.mask)
+                probs = F.softmax(outputs, dim=-1)
+
+                for idx, (instruction_id, page, _) in enumerate(input_features):
+                    top2_blocks = torch.topk(probs[0, idx], 2).indices
+                    for block_idx in top2_blocks:
+                        block_str = format(block_idx.item(), f'0{self.block_size}b')
+                        prefetch_address = int(page + block_str, 2)
+                        prefetches.append((instruction_id, prefetch_address))
 
         return prefetches
 

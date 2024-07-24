@@ -6,19 +6,19 @@ import torch.nn.functional as F
 def scaled_dot_product(q, k, v, mask=None):
     d_k = q.size(-1)
     scaled = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(d_k)
-    print(f"Scaled shape: {scaled.shape}")
+
 
     if mask is not None:
         # Adjust the mask to match the batch size
         batch_size = q.size(0)
         mask = mask[:batch_size, :scaled.size(-1)]
-        print(f"Mask shape before unsqueeze: {mask.shape}")
+
         mask = mask.unsqueeze(1).unsqueeze(2)  # Add extra dimensions for broadcasting
-        print(f"Mask shape after unsqueeze: {mask.shape}")
+
         
         # Apply the mask with masked_fill, where mask==0, set the values to -inf
         scaled = scaled.masked_fill(mask == 0, float('-inf'))
-        print(f"Scaled after masking: {scaled}")
+
         
     attention = F.softmax(scaled, dim=-1)
     values = torch.matmul(attention, v)
