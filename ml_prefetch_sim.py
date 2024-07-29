@@ -8,9 +8,9 @@ from model import Model
 
 default_results_dir = './results'
 default_output_file = './stats.csv'
-default_spec_instrs = 500
-default_gap_instrs = 300
-default_warmup_instrs = 10
+default_spec_instrs = 1
+default_gap_instrs = 1
+default_warmup_instrs = 1
 
 default_seed_file = './scripts/seeds.txt'
 
@@ -399,6 +399,7 @@ def read_load_trace_data(load_trace, num_prefetch_warmup_instructions):
         print('Unsupported load trace file format')
         exit(-1)
     print(train_data)
+    print("This is eval data",eval_data)
     return train_data, eval_data
 
 def train_command():

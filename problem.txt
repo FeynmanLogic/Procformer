@@ -1,4 +1,3 @@
-Current problem I am facing is that,
-currently after masked self attention you getting size torch.Size([1, 64, 2688])
-2688=64*42
-some dumb error that I need to spot
+
+Currently getting very wrong predictions for instructions around 2 million
+At the very least one assumes that the page number must be correct. But wtf is happening in such a way.
