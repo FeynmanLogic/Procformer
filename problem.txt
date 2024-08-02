@@ -1,3 +1,7 @@
 
 Currently getting very wrong predictions for instructions around 2 million
-At the very least one assumes that the page number must be correct. But wtf is happening in such a way.
+At the very least one assumes that the page number must be correct. But  happening in such a way.
+
+I have to see how I can accurately predict the next page number.
+What we can do is simply extract page number and then append the block to it.
+let's see how one hot encoding works.
