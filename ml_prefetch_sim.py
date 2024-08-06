@@ -377,12 +377,13 @@ def read_load_trace_data(load_trace, num_prefetch_warmup_instructions):
                 if line.startswith('***') or line.startswith('Read'):
                     continue
                 pline = process_line(line)
-                if pline[0] < num_prefetch_warmup_instructions * 1000000:
+                if pline[0] < num_prefetch_warmup_instructions * 2000000:
                     train_data.append(pline)
                     x+=1
-                elif j!=x:
-                    eval_data.append(pline)
-                    j+=1
+                # elif j!=x:
+                #     eval_data.append(pline)
+                #     j+=1
+            eval_data=train_data
     elif load_trace.endswith('.txt.xz'):
         import lzma
         with lzma.open(load_trace, mode='rt', encoding='utf-8') as f:

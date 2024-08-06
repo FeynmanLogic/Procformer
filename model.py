@@ -17,12 +17,12 @@ SPLIT_BITS = 6
 LOOK_BACK = 5
 PRED_FORWARD = 2
 BITMAP_SIZE = 2 ** (PAGE_BITS - BLOCK_BITS)
-d_model = 42 # d_model is same as page size, intuitively
+d_model = PAGE_BITS # d_model is same as page size, intuitively
 num_heads = 7
 drop_prob = 0.1
 ffn_hidden = 1024
 batch_size = 3000
-num_layers = 5
+num_layers = 7
 save_path = 'trained_model.pth'
 
 class MLPrefetchModel(object):
@@ -54,7 +54,6 @@ class MLPrefetchModel(object):
 
     @abstractmethod
     def preprocessor(self, data, batch_size):
-        
         num_batches = len(data) // batch_size + (1 if len(data) % batch_size != 0 else 0)
         for i in range(num_batches):
             batch_data = data[i * batch_size:(i + 1) * batch_size]
@@ -63,28 +62,30 @@ class MLPrefetchModel(object):
 
             for line in batch_data:
                 instr_id, cycle_count, load_address, instr_ptr, llc_hit_miss = line
-                addr_size=len(bin(load_address)) #this is done to remove heterogenity 
-                load_address=self.ensure_48bit_address(load_address)
-                page = load_address[: self.page_size]
-                block = load_address[self.page_size:self.page_size + self.block_size]
+                addr_size = len(bin(load_address)) - 2  # this is done to remove heterogeneity
+
+            # Ensure the page is padded to PAGE_BITS length
+                page = bin(load_address)[2:2 + self.page_size].zfill(self.page_size)
+                block = bin(load_address)[2 + self.page_size:2 + self.page_size + self.block_size]
 
                 if page not in bitmaps:
                     bitmaps[page] = np.zeros(2 ** self.block_size, dtype=int)
 
-                input_features.append((instr_id, page, block,addr_size))
+                input_features.append((instr_id, page, block, addr_size))
                 bitmaps[page][int(block, 2)] = 1
 
             max_sequence_length = len(batch_data)
             labels_tensor = torch.zeros((1, max_sequence_length, 2 ** self.block_size), dtype=torch.float32).to(device)
             for j, line in enumerate(batch_data):
                 _, _, load_address, _, _ = line
-                page = bin(load_address)[2:2 + self.page_size]
+                page = bin(load_address)[2:2 + self.page_size].zfill(self.page_size)
                 block = bin(load_address)[2 + self.page_size:2 + self.page_size + self.block_size]
 
                 label_idx = int(block, 2)
                 labels_tensor[0, j, label_idx] = 1.0  # Set the corresponding block bit to 1
 
             yield input_features, labels_tensor
+
 
     @abstractmethod
     def train(self, data):
@@ -112,9 +113,9 @@ class MLPrefetchModel(object):
         scheduler = CustomLearningRateScheduler(optimizer, d_model=d_model, warmup_steps=2000)
 
         self.model.train()
-        for epoch in range(5):
+        for epoch in range(10):
             for input_features, labels in self.preprocessor(data, batch_size):
-                tokenized_inputs = [[int(digit) for digit in str(page).zfill(d_model)] for _, page, _,address_size in input_features]
+                tokenized_inputs = [[int(digit) for digit in str(page)] for _, page, _,address_size in input_features]
                 X = torch.tensor(tokenized_inputs, dtype=torch.float).unsqueeze(0).to(device)
 
                 dataset = TensorDataset(X, labels)
@@ -144,7 +145,7 @@ class MLPrefetchModel(object):
     def generate(self, data):
         prefetches = []
         for input_features, labels in self.preprocessor(data, batch_size):
-            tokenized_inputs = [[int(digit) for digit in str(page)] for _, page, _,address_size in input_features]
+            tokenized_inputs = [[int(digit) for digit in str(page)] for _, page, _, address_size in input_features]
             X = torch.tensor(tokenized_inputs, dtype=torch.float).unsqueeze(0).to(device)
 
             if self.mask is None:
@@ -153,40 +154,31 @@ class MLPrefetchModel(object):
             with torch.no_grad():
                 outputs = self.model(X, X, self.mask)
                 probs = F.softmax(outputs, dim=-1)
-            k=0
-
-  # Initialize the list to store prefetch addresses
-
 
             for idx, (instruction_id, page, block, address_size) in enumerate(input_features):
-        # Get the top 2 blocks with highest probabilities
+            # Get the top 2 blocks with highest probabilities
                 top2_blocks = torch.topk(probs[0, idx], 2).indices
-
                 for block_idx in top2_blocks:
-            # Format the block index to a binary string of block_size length
+                # Format the block index to a binary string of block_size length
                     block_str = format(block_idx.item(), f'0{self.block_size}b')
-
-            # Concatenate the page and block binary strings
+                # Concatenate the page and block binary strings
                     prefetch_address_str = page + block_str
 
-            # Convert the concatenated binary string to an integer
+                # Ensure the concatenated string is exactly 48 bits
+                    prefetch_address_str=prefetch_address_str[2:]
+                
+                # Convert the concatenated binary string to an integer
                     prefetch_address = int(prefetch_address_str, 2)
 
-            # Ensure the address size is less than the size from preprocessor
-                    generated_address_size = len(prefetch_address_str)
+                # Ensure the address is 48 bits
 
-                if generated_address_size > address_size:
-                # Truncate the binary string to fit the address size
-                    cutoff = generated_address_size - address_size
-                    truncated_prefetch_address_str = prefetch_address_str[cutoff:]
-                    prefetch_address = int(truncated_prefetch_address_str, 2)
-                else:
-                    truncated_prefetch_address_str = prefetch_address_str
-
-            # Append the instruction_id and prefetch_address to the prefetches list
-                prefetches.append((instruction_id, prefetch_address))
+                
+                # Append the instruction_id and prefetch_address to the prefetches list
+                    prefetches.append((instruction_id, prefetch_address))
 
         return prefetches
+
+
 # Replace this if you create your own model
 Model = MLPrefetchModel
 

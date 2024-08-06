@@ -1,10 +1,4 @@
-y= '85269b3b2130'
-print(int(y,16))
-z='28d7cf4745c0'
-print(len(z))
-PAGE=0b101000110101111100111101000111010001011100
-PAGE_str='101000110101111100111101000111010001011100'
-print(hex(PAGE))
-PAGE2=44907360634304
-print(hex(PAGE2))
-print(len(PAGE_str))
+z='a3a0df21ea00'
+print(len(bin(int(z,16))))
+k='28e837c87440'
+print(len(bin(int(k,16))))

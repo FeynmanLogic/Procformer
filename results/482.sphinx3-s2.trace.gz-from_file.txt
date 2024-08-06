@@ -15,11 +15,11 @@ CPU 0 LLC from_file prefetcher
 
 Warmup complete CPU 0 instructions: 1000004 cycles: 365952 (Simulation time: 0 hr 0 min 1 sec) 
 
-Heartbeat CPU 0 instructions: 10000001 cycles: 16102559 heartbeat IPC: 0.621019 cumulative IPC: 0.571915 (Simulation time: 0 hr 0 min 12 sec) 
+Heartbeat CPU 0 instructions: 10000001 cycles: 16102559 heartbeat IPC: 0.621019 cumulative IPC: 0.571915 (Simulation time: 0 hr 0 min 13 sec) 
 
-Warmup complete CPU 0 instructions: 10000001 cycles: 16102559 (Simulation time: 0 hr 0 min 12 sec) 
+Warmup complete CPU 0 instructions: 10000001 cycles: 16102559 (Simulation time: 0 hr 0 min 13 sec) 
 
-Finished CPU 0 instructions: 1000002 cycles: 2227788 cumulative IPC: 0.448877 (Simulation time: 0 hr 0 min 13 sec) 
+Finished CPU 0 instructions: 1000002 cycles: 2227788 cumulative IPC: 0.448877 (Simulation time: 0 hr 0 min 14 sec) 
 
 ChampSim completed all CPUs
 
