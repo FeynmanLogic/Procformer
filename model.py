@@ -11,14 +11,14 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 TOTAL_BITS = 64
 BLOCK_BITS = 6
-PAGE_BITS = 42
+PAGE_BITS = 40
 BLOCK_NUM_BITS = TOTAL_BITS - BLOCK_BITS
 SPLIT_BITS = 6
 LOOK_BACK = 5
 PRED_FORWARD = 2
 BITMAP_SIZE = 2 ** (PAGE_BITS - BLOCK_BITS)
 d_model = PAGE_BITS # d_model is same as page size, intuitively
-num_heads = 7
+num_heads = 8
 drop_prob = 0.1
 ffn_hidden = 1024
 batch_size = 3000
@@ -161,20 +161,30 @@ class MLPrefetchModel(object):
                 for block_idx in top2_blocks:
                 # Format the block index to a binary string of block_size length
                     block_str = format(block_idx.item(), f'0{self.block_size}b')
+                    print(block_str)
                 # Concatenate the page and block binary strings
-                    prefetch_address_str = page + block_str
+                    prefetch_address=page+block_str
+                    print(prefetch_address)
+                    prefetch_address_sorted=''
+                    for i in range(46):
+
+                        prefetch_address_sorted=prefetch_address_sorted+prefetch_address[i]
+                    prefetch_address_final=int(prefetch_address_sorted,2)
+                    print(prefetch_address_final) 
+
+
 
                 # Ensure the concatenated string is exactly 48 bits
-                    prefetch_address_str=prefetch_address_str[2:]
+                    
                 
                 # Convert the concatenated binary string to an integer
-                    prefetch_address = int(prefetch_address_str, 2)
+                    
 
                 # Ensure the address is 48 bits
 
                 
                 # Append the instruction_id and prefetch_address to the prefetches list
-                    prefetches.append((instruction_id, prefetch_address))
+                    prefetches.append((instruction_id, prefetch_address_final))
 
         return prefetches
 
