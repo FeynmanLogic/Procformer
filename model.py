@@ -11,14 +11,14 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 TOTAL_BITS = 64
 BLOCK_BITS = 6
-PAGE_BITS = 40
+PAGE_BITS = 42
 BLOCK_NUM_BITS = TOTAL_BITS - BLOCK_BITS
 SPLIT_BITS = 6
 LOOK_BACK = 5
 PRED_FORWARD = 2
 BITMAP_SIZE = 2 ** (PAGE_BITS - BLOCK_BITS)
 d_model = PAGE_BITS # d_model is same as page size, intuitively
-num_heads = 8
+num_heads = 7
 drop_prob = 0.1
 ffn_hidden = 1024
 batch_size = 3000
@@ -62,12 +62,20 @@ class MLPrefetchModel(object):
 
             for line in batch_data:
                 instr_id, cycle_count, load_address, instr_ptr, llc_hit_miss = line
-                addr_size = len(bin(load_address)) - 2  # this is done to remove heterogeneity
+                # this is done to remove heterogeneity
 
             # Ensure the page is padded to PAGE_BITS length
-                page = bin(load_address)[2:2 + self.page_size].zfill(self.page_size)
-                block = bin(load_address)[2 + self.page_size:2 + self.page_size + self.block_size]
-
+                z=bin(load_address)
+                if len(z)==48:
+                    binary_address='00'+bin(load_address)[2:]
+                elif len(z)==46:
+                    binary_address='0000'+bin(load_address)[2:]
+                else:
+                    binary_address=bin(load_address)[2:]
+                print("Binary form of address is",binary_address)                  
+                page = binary_address[:  self.page_size].zfill(self.page_size)
+                block = binary_address[ self.page_size: self.page_size + self.block_size]
+                addr_size=len(binary_address)
                 if page not in bitmaps:
                     bitmaps[page] = np.zeros(2 ** self.block_size, dtype=int)
 
@@ -78,8 +86,8 @@ class MLPrefetchModel(object):
             labels_tensor = torch.zeros((1, max_sequence_length, 2 ** self.block_size), dtype=torch.float32).to(device)
             for j, line in enumerate(batch_data):
                 _, _, load_address, _, _ = line
-                page = bin(load_address)[2:2 + self.page_size].zfill(self.page_size)
-                block = bin(load_address)[2 + self.page_size:2 + self.page_size + self.block_size]
+                page = binary_address[:  self.page_size].zfill(self.page_size)
+                block = binary_address[self.page_size:self.page_size + self.block_size]
 
                 label_idx = int(block, 2)
                 labels_tensor[0, j, label_idx] = 1.0  # Set the corresponding block bit to 1
@@ -165,14 +173,22 @@ class MLPrefetchModel(object):
                 # Concatenate the page and block binary strings
                     prefetch_address=page+block_str
                     print(prefetch_address)
-                    prefetch_address_sorted=''
-                    for i in range(46):
+                    if address_size ==46:
+                        prefetch_address_sorted=''
+                        for i in range(2,48):
 
-                        prefetch_address_sorted=prefetch_address_sorted+prefetch_address[i]
-                    prefetch_address_final=int(prefetch_address_sorted,2)
-                    print(prefetch_address_final) 
+                            prefetch_address_sorted=prefetch_address_sorted+prefetch_address[i]
+                        prefetch_address_final=int(prefetch_address_sorted,2)
+                        print(prefetch_address_final) 
+                    elif address_size ==44:
+                        prefetch_address_sorted=''
+                        for i in range(2,46):
 
-
+                            prefetch_address_sorted=prefetch_address_sorted+prefetch_address[i]
+                        prefetch_address_final=int(prefetch_address_sorted,2)
+                        print(prefetch_address_final) 
+                    else:
+                        prefetch_address_final=int(page+block_str,2)
 
                 # Ensure the concatenated string is exactly 48 bits
                     

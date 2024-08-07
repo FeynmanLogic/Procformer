@@ -1,2 +1,6 @@
-x='fdfd3a8c1480'
-print(len(x))
+x=0x2884c863af00
+print(len(bin(x)))
+k='1010001000010011001000011000111010111100000000'
+print(len(k))
+z=0xa213218ebc0
+print(len(bin(z)))
