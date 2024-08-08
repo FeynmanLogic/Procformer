@@ -373,11 +373,13 @@ def read_load_trace_data(load_trace, num_prefetch_warmup_instructions):
     j=0
     if load_trace.endswith('.txt'):
         with open(load_trace, 'r') as f:
+            x=0
             for i, line in enumerate(f):
                 if line.startswith('***') or line.startswith('Read'):
                     continue
                 pline = process_line(line)
-                if pline[0] < num_prefetch_warmup_instructions * 2000000:
+
+                if x<=1000000:
                     train_data.append(pline)
                     x+=1
                 train_data=eval_data
