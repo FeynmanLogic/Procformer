@@ -72,7 +72,7 @@ class MLPrefetchModel(object):
                     binary_address='0000'+bin(load_address)[2:]
                 else:
                     binary_address=bin(load_address)[2:]
-                print("Binary form of address is",binary_address)                  
+                      
                 page = binary_address[:  self.page_size].zfill(self.page_size)
                 block = binary_address[ self.page_size: self.page_size + self.block_size]
                 addr_size=len(binary_address)
@@ -179,14 +179,14 @@ class MLPrefetchModel(object):
 
                             prefetch_address_sorted=prefetch_address_sorted+prefetch_address[i]
                         prefetch_address_final=int(prefetch_address_sorted,2)
-                        print(prefetch_address_final) 
+
                     elif address_size ==44:
                         prefetch_address_sorted=''
                         for i in range(2,46):
 
                             prefetch_address_sorted=prefetch_address_sorted+prefetch_address[i]
                         prefetch_address_final=int(prefetch_address_sorted,2)
-                        print(prefetch_address_final) 
+
                     else:
                         prefetch_address_final=int(page+block_str,2)
 

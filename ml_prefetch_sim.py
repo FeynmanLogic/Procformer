@@ -379,10 +379,11 @@ def read_load_trace_data(load_trace, num_prefetch_warmup_instructions):
                     continue
                 pline = process_line(line)
 
-                if x<=1000000:
+                if pline[0]<num_prefetch_warmup_instructions*1000000:
                     train_data.append(pline)
                     x+=1
-                train_data=eval_data
+                if num_prefetch_warmup_instructions*1000000<pline[0]<num_prefetch_warmup_instructions*2000000:
+                    eval_data.append(pline)
                 # if pline[0]==2:
                 #     eval_data.append(pline)
 
