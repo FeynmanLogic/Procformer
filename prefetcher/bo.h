@@ -433,7 +433,10 @@ void bo_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_
             dq_push(lineaddr);
             for(uint32_t i=1; i<=degree; i++)
                 if (pt.prefetch_score > LOW_SCORE)
-                    prefetch_candidates.push_back((lineaddr+i*offset)<<LOGLINE);
+                   { prefetch_candidates.push_back((lineaddr+i*offset)<<LOGLINE);
+
+                   }
+                   
                     //prefetch_issued += cache->prefetch_line(ip ,lineaddr<<LOGLINE,(lineaddr+i*offset)<<LOGLINE, FILL_LLC, 0);
         }
     }

@@ -14,13 +14,16 @@ uint32_t CACHE::llc_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache
     vector<uint64_t> bo_candidates;
     bo_prefetcher_operate(addr, ip, cache_hit, type, get_set(addr), get_way(addr, get_set(addr)), DEGREE, bo_candidates);
     for(uint32_t i=0; i<bo_candidates.size(); i++)
-        prefetch_line(ip, addr, bo_candidates[i], FILL_LLC, 0);
+       { prefetch_line(ip, addr, bo_candidates[i], FILL_LLC, 0);
+       cout <<"Instruction pointer " <<ip<<"Address is "<<addr<<"Candidate is " <<bo_candidates[i]<<endl;}
+        
     return metadata_in;
 }
 
 uint32_t CACHE::llc_prefetcher_cache_fill(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
 {
     bo_prefetcher_cache_fill(addr, set, way, prefetch, evicted_addr);
+    cout <<"Address while cache filling " <<addr;
     return metadata_in;
 }
 

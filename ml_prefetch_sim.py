@@ -374,16 +374,27 @@ def read_load_trace_data(load_trace, num_prefetch_warmup_instructions):
     if load_trace.endswith('.txt'):
         with open(load_trace, 'r') as f:
             x=0
+            count=0
             for i, line in enumerate(f):
                 if line.startswith('***') or line.startswith('Read'):
                     continue
                 pline = process_line(line)
 
-                if pline[0]<num_prefetch_warmup_instructions*1000000:
+                if x<=1000000:
                     train_data.append(pline)
                     x+=1
-                if num_prefetch_warmup_instructions*1000000<pline[0]<num_prefetch_warmup_instructions*2000000:
+                else:
+                    x+=1
+                
+
+                if 1000000<=pline[0]<=2000000:
                     eval_data.append(pline)
+                    x+=1
+                if pline[0]!=4804891:
+                    count+=1
+                else:
+                    print("Count is",count)
+                    break
                 # if pline[0]==2:
                 #     eval_data.append(pline)
 
