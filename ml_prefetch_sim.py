@@ -366,7 +366,8 @@ def read_load_trace_data(load_trace, num_prefetch_warmup_instructions):
     def process_line(line):
         split = line.strip().split(', ')
         return int(split[0]), int(split[1]), int(split[2],16), int(split[2],16), split[4] == '1'
-
+        if ValueError:
+            print(line)
     train_data = []
     eval_data = []
     x=0
@@ -378,9 +379,10 @@ def read_load_trace_data(load_trace, num_prefetch_warmup_instructions):
             for i, line in enumerate(f):
                 if line.startswith('***') or line.startswith('Read'):
                     continue
+                print(line)
                 pline = process_line(line)
 
-                if x<=1000000:
+                if pline[0]<=1000000:
                     train_data.append(pline)
                     x+=1
                 else:

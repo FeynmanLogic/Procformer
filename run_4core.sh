@@ -55,8 +55,8 @@ if [ ! -f "$TRACE_DIR/$TRACE2" ] ; then
     exit 1
 fi
 
-if [ ! -f "$TRACE_DIR/$TRACE3" ] ; then
-    echo "[ERROR] Cannot find a trace3 file: $TRACE_DIR/$TRACE3"
+if [ ! -f "$TRACE3" ] ; then
+    echo "[ERROR] Cannot find a trace3 file: $TRACE3"
     exit 1
 fi
 

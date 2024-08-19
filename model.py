@@ -10,15 +10,15 @@ import numpy as np
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 TOTAL_BITS = 64
-BLOCK_BITS = 6
-PAGE_BITS = 42
+BLOCK_BITS = 12
+PAGE_BITS = 36
 BLOCK_NUM_BITS = TOTAL_BITS - BLOCK_BITS
 SPLIT_BITS = 6
 LOOK_BACK = 5
 PRED_FORWARD = 2
 BITMAP_SIZE = 2 ** (PAGE_BITS - BLOCK_BITS)
 d_model = PAGE_BITS # d_model is same as page size, intuitively
-num_heads = 7
+num_heads = 9
 drop_prob = 0.1
 ffn_hidden = 1024
 batch_size = 3000
@@ -70,6 +70,10 @@ class MLPrefetchModel(object):
                     binary_address='00'+bin(load_address)[2:]
                 elif len(z)==46:
                     binary_address='0000'+bin(load_address)[2:]
+                elif len(z) <50:
+                    binary_address=bin(load_address)[2:]
+                    for i in range (0,50-len(z)):
+                        binary_address='0'+binary_address
                 else:
                     binary_address=bin(load_address)[2:]
                       
