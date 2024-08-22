@@ -22,6 +22,8 @@ The tips he gave:<ul>
  <li>If you look at src/main.cc, the prefetch_warmup_instructions is locked to be at least 10M. If you want to run with your settings, you have to remove the if condition there. In addition, make sure the instruction IDs in your file range from 1M to 2M.</li>
  <li> load traces provided in the Box folder may not work for you due to ChampSim using a standard library RNG which varies in implementations across machines. If ChampSim is properly loading in your prefetches, but none are getting issued / being useful, this could be the reason. In that case, you would need to create your own load traces for your machine using "trace.llc_pref".
  So I created my own traces, and removed the restriction
+ </ul>
+ 
 # Modified ChampSim for ML Prefetching Competition
 
 We will use ChampSim to evaluate the effectiveness of your ML prefetchers.  You
