@@ -11,3 +11,5 @@ m=4226291
 print(hex(m))
 n=4226227
 print(hex(n))
+o='d401f49b040'
+print(int(o,16))

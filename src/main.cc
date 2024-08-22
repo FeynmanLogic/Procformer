@@ -566,8 +566,7 @@ int main(int argc, char** argv)
                 break;
             case 'p':
                 prefetch_warmup_instructions = atol(optarg);
-                if(prefetch_warmup_instructions < 10000000)
-                    prefetch_warmup_instructions = 10000000;
+                
                 break;
             case 'h':
                 show_heartbeat = 0;

@@ -1388,9 +1388,10 @@ int CACHE::add_wq(PACKET *packet)
 
 int CACHE::prefetch_line(uint64_t ip, uint64_t base_addr, uint64_t pf_addr, int pf_fill_level, uint32_t prefetch_metadata)
 {
-    if(!prefetch_warmup_complete)
-        return 0;
-
+    if(!prefetch_warmup_complete){
+      cout<<"WARMUP INSTRUCTIONS NOT FINISHED YET MAN"<<endl;
+        return 0;}
+      cout <<"Prefetch warmup has been completed"<<endl;
     pf_requested++;
 
     if (PQ.occupancy < PQ.SIZE) {
