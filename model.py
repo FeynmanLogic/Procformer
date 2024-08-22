@@ -5,20 +5,20 @@ from torch.utils.data import DataLoader, TensorDataset
 import torch.nn.functional as F
 import torch.nn as nn
 import numpy as np
-
+from collections import defaultdict
 # Check if a GPU is available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 TOTAL_BITS = 64
-BLOCK_BITS = 12
-PAGE_BITS = 36
+BLOCK_BITS = 6
+PAGE_BITS = 42
 BLOCK_NUM_BITS = TOTAL_BITS - BLOCK_BITS
 SPLIT_BITS = 6
 LOOK_BACK = 5
 PRED_FORWARD = 2
 BITMAP_SIZE = 2 ** (PAGE_BITS - BLOCK_BITS)
 d_model = PAGE_BITS # d_model is same as page size, intuitively
-num_heads = 9
+num_heads = 7
 drop_prob = 0.1
 ffn_hidden = 1024
 batch_size = 3000
@@ -197,29 +197,19 @@ class MLPrefetchModel(object):
 
         #             prefetches.append((instruction_id, prefetch_address_final))
         # return prefetches
-
         prefetches=[]
-        for input_features, labels in self.preprocessor(data, batch_size):
-            for instr_id, page, block, address_size in input_features:
+        prefetch_count=defaultdict(int)
+        for line in data:
+                instr_id, _,load_address, _,_  =line
+            # Limit prefetches to 2 per instr_id
+                if prefetch_count[instr_id] < 2:
                 # Convert block from binary to integer
-                current_block_idx = int(block, 2)
-                
-                # Predict the next block by simply adding 1
-                next_block_idx = (current_block_idx + 1) % (2 ** self.block_size)
-                
-                # Format the next block index back to a binary string
-                next_block_str = format(next_block_idx, f'0{self.block_size}b')
-                
-                # Concatenate the page and next block binary strings
-                prefetch_address_bin = page + next_block_str
-                
-                # Convert binary string to an integer address
-                prefetch_address = int(prefetch_address_bin, 2)
-                
-                # Append the prefetch address to the list
-                prefetches.append((instr_id,prefetch_address))
-        
+                        prefetch_address_final=load_address+64
+                        prefetch_count[instr_id]+=1
+                        prefetches.append((instr_id,prefetch_address_final))
         return prefetches
+    
+
 
 
 
