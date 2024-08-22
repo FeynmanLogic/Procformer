@@ -7,23 +7,23 @@ Class explosion problem in the Transformap has been elegantly dealt with, by pre
 Context: I was facing an issue, I just had to sample my model on the first million instructions, it wasn't working. No
  prefetch requested. Even for a simple next line prefetcher.
  So I directly sent a mail to the creator of this framework: 
- Dear Mr.Quang,
-I've hit a wall. My ML-based prefetcher does not seem to show any improvement.
-Set num_prefetch_warmup to 1, simulation instructions to 1, and warmup instructions to 1, prefetching from instruction number 2 million, and no improvements yet.
-Prefetches size 48 bit, similar to size of actual trace data, and seeing either the same address or another address with offset being prefetched. Perhaps that is a reason?
-Simulator showing no prefetch requested at any cache level. What could be the reason?
-And lastly, could I use the same prefetcher in further research too, since the latest version of Champsim has no ML fork.
-I sincerely thank you for reading till here, and will be immensely grateful if you could reply with any hint on my doubts.
-Apologize for any inconvenience or trouble,
-Dhruv Kulkarni
-Currently a remote research intern at George Mason University.
+Dear Mr.Quang, <br>
+I've hit a wall. My ML-based prefetcher does not seem to show any improvement.<br>
+Set num_prefetch_warmup to 1, simulation instructions to 1, and warmup instructions to 1, prefetching from instruction number 2 million, and no improvements yet.<br>
+Prefetches size 48 bit, similar to size of actual trace data, and seeing either the same address or another address with offset being prefetched. Perhaps that is a reason?<br>
+Simulator showing no prefetch requested at any cache level. What could be the reason?<br>
+And lastly, could I use the same prefetcher in further research too, since the latest version of Champsim has no ML fork.<br>
+I sincerely thank you for reading till here, and will be immensely grateful if you could reply with any hint on my doubts.<br>
+Apologize for any inconvenience or trouble,<br>
+Dhruv Kulkarni<br>
+Currently a remote research intern at George Mason University.<br>
 
 The tips he gave:<ul>
  <li>If you look at src/main.cc, the prefetch_warmup_instructions is locked to be at least 10M. If you want to run with your settings, you have to remove the if condition there. In addition, make sure the instruction IDs in your file range from 1M to 2M.</li>
  <li> load traces provided in the Box folder may not work for you due to ChampSim using a standard library RNG which varies in implementations across machines. If ChampSim is properly loading in your prefetches, but none are getting issued / being useful, this could be the reason. In that case, you would need to create your own load traces for your machine using "trace.llc_pref".
  So I created my own traces, and removed the restriction
  </ul>
- 
+
 # Modified ChampSim for ML Prefetching Competition
 
 We will use ChampSim to evaluate the effectiveness of your ML prefetchers.  You
