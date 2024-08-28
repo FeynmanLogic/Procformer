@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torch.nn as nn
 import numpy as np
 from collections import defaultdict
+
 # Check if a GPU is available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -17,7 +18,7 @@ SPLIT_BITS = 6
 LOOK_BACK = 5
 PRED_FORWARD = 2
 BITMAP_SIZE = 2 ** (PAGE_BITS - BLOCK_BITS)
-d_model = PAGE_BITS # d_model is same as page size, intuitively
+d_model = PAGE_BITS  # d_model is same as page size, intuitively
 num_heads = 7
 drop_prob = 0.1
 ffn_hidden = 1024
@@ -25,8 +26,8 @@ batch_size = 3000
 num_layers = 7
 save_path = 'trained_model.pth'
 
-class MLPrefetchModel(object):
-    @abstractmethod
+
+class MLPrefetchModel(ABC):
     def __init__(self):
         self.page_size = PAGE_BITS
         self.block_size = BLOCK_BITS
@@ -57,29 +58,29 @@ class MLPrefetchModel(object):
         num_batches = len(data) // batch_size + (1 if len(data) % batch_size != 0 else 0)
         for i in range(num_batches):
             batch_data = data[i * batch_size:(i + 1) * batch_size]
-            input_features = [] #model training ke liye
+            input_features = []  # model training ke liye
             bitmaps = {}
 
             for line in batch_data:
                 instr_id, cycle_count, load_address, instr_ptr, llc_hit_miss = line
                 # this is done to remove heterogeneity
 
-            # Ensure the page is padded to PAGE_BITS length
-                z=bin(load_address)
-                if len(z)==48:
-                    binary_address='00'+bin(load_address)[2:]
-                elif len(z)==46:
-                    binary_address='0000'+bin(load_address)[2:]
-                elif len(z) <50:
-                    binary_address=bin(load_address)[2:]
-                    for i in range (0,50-len(z)):
-                        binary_address='0'+binary_address
+                # Ensure the page is padded to PAGE_BITS length
+                z = bin(load_address)
+                if len(z) == 48:
+                    binary_address = '00' + bin(load_address)[2:]
+                elif len(z) == 46:
+                    binary_address = '0000' + bin(load_address)[2:]
+                elif len(z) < 50:
+                    binary_address = bin(load_address)[2:]
+                    for _ in range(0, 50 - len(z)):
+                        binary_address = '0' + binary_address
                 else:
-                    binary_address=bin(load_address)[2:]
-                      
-                page = binary_address[:  self.page_size].zfill(self.page_size)
-                block = binary_address[ self.page_size: self.page_size + self.block_size]
-                addr_size=len(binary_address)
+                    binary_address = bin(load_address)[2:]
+
+                page = binary_address[:self.page_size].zfill(self.page_size)
+                block = binary_address[self.page_size:self.page_size + self.block_size]
+                addr_size = len(binary_address)
                 if page not in bitmaps:
                     bitmaps[page] = np.zeros(2 ** self.block_size, dtype=int)
 
@@ -90,14 +91,13 @@ class MLPrefetchModel(object):
             labels_tensor = torch.zeros((1, max_sequence_length, 2 ** self.block_size), dtype=torch.float32).to(device)
             for j, line in enumerate(batch_data):
                 _, _, load_address, _, _ = line
-                page = binary_address[:  self.page_size].zfill(self.page_size)
+                page = binary_address[:self.page_size].zfill(self.page_size)
                 block = binary_address[self.page_size:self.page_size + self.block_size]
 
                 label_idx = int(block, 2)
                 labels_tensor[0, j, label_idx] = 1.0  # Set the corresponding block bit to 1
 
             yield input_features, labels_tensor
-
 
     @abstractmethod
     def train(self, data):
@@ -127,7 +127,7 @@ class MLPrefetchModel(object):
         self.model.train()
         for epoch in range(10):
             for input_features, labels in self.preprocessor(data, batch_size):
-                tokenized_inputs = [[int(digit) for digit in str(page)] for _, page, _,address_size in input_features]
+                tokenized_inputs = [[int(digit) for digit in str(page)] for _, page, _, address_size in input_features]
                 X = torch.tensor(tokenized_inputs, dtype=torch.float).unsqueeze(0).to(device)
 
                 dataset = TensorDataset(X, labels)
@@ -155,62 +155,45 @@ class MLPrefetchModel(object):
 
     @abstractmethod
     def generate(self, data):
-        # prefetches = []
-        # for input_features, labels in self.preprocessor(data, batch_size):
-        #     tokenized_inputs = [[int(digit) for digit in str(page)] for _, page, _, address_size in input_features]
-        #     X = torch.tensor(tokenized_inputs, dtype=torch.float).unsqueeze(0).to(device)
+        prefetches = []
+        for input_features, labels in self.preprocessor(data, batch_size):
+            tokenized_inputs = [[int(digit) for digit in str(page)] for _, page, _, address_size in input_features]
+            X = torch.tensor(tokenized_inputs, dtype=torch.float).unsqueeze(0).to(device)
 
-        #     if self.mask is None:
-        #         self.mask = self._create_mask(X.size(1))
+            if self.mask is None:
+                self.mask = self._create_mask(X.size(1))
 
-        #     with torch.no_grad():
-        #         outputs = self.model(X, X, self.mask)
-        #         probs = F.softmax(outputs, dim=-1)
+            with torch.no_grad():
+                # Use beam search for generating prefetches
+                outputs = self.model.beam_search(X, X, beam_width=3, max_len=10, mask=self.mask)
 
-        #     for idx, (instruction_id, page, block, address_size) in enumerate(input_features):
-        #     # Get the top 2 blocks with highest probabilities
-        #         top2_blocks = torch.topk(probs[0, idx], 2).indices
-        #         for block_idx in top2_blocks:
-        #         # Format the block index to a binary string of block_size length
-        #             block_str = format(block_idx.item(), f'0{self.block_size}b')
-        #             print(block_str)
-        #         # Concatenate the page and block binary strings
-        #             prefetch_address=page+block_str
-        #             print(prefetch_address)
-        #             if address_size ==46:
-        #                 prefetch_address_sorted=''
-        #                 for i in range(2,48):
+            for idx, (instruction_id, page, block, address_size) in enumerate(input_features):
+                # Get the top 2 blocks with highest probabilities
+                top2_blocks = torch.topk(outputs[idx], 2).indices
+                for block_idx in top2_blocks:
+                    # Format the block index to a binary string of block_size length
+                    block_str = format(block_idx.item(), f'0{self.block_size}b')
 
-        #                     prefetch_address_sorted=prefetch_address_sorted+prefetch_address[i]
-        #                 prefetch_address_final=int(prefetch_address_sorted,2)
+                    # Concatenate the page and block binary strings
+                    prefetch_address = page + block_str
+                    if address_size == 46:
+                        prefetch_address_sorted = ''
+                        for i in range(2, 48):
+                            prefetch_address_sorted += prefetch_address[i]
+                        prefetch_address_final = int(prefetch_address_sorted, 2)
 
-        #             elif address_size ==44:
-        #                 prefetch_address_sorted=''
-        #                 for i in range(2,46):
+                    elif address_size == 44:
+                        prefetch_address_sorted = ''
+                        for i in range(2, 46):
+                            prefetch_address_sorted += prefetch_address[i]
+                        prefetch_address_final = int(prefetch_address_sorted, 2)
 
-        #                     prefetch_address_sorted=prefetch_address_sorted+prefetch_address[i]
-        #                 prefetch_address_final=int(prefetch_address_sorted,2)
+                    else:
+                        prefetch_address_final = int(page + block_str, 2)
 
-        #             else:
-        #                 prefetch_address_final=int(page+block_str,2)
+                    prefetches.append((instruction_id, prefetch_address_final))
 
-
-        #             prefetches.append((instruction_id, prefetch_address_final))
-        # return prefetches
-        prefetches=[]
-        prefetch_count=defaultdict(int)
-        for line in data:
-                instr_id, _,load_address, _,_  =line
-            # Limit prefetches to 2 per instr_id
-                if prefetch_count[instr_id] < 2:
-                # Convert block from binary to integer
-                        prefetch_address_final=load_address+64
-                        prefetch_count[instr_id]+=1
-                        prefetches.append((instr_id,prefetch_address_final))
         return prefetches
-    
-
-
 
 
 # Replace this if you create your own model

@@ -8,7 +8,7 @@ from model import Model
 
 default_results_dir = './results'
 default_output_file = './stats.csv'
-default_spec_instrs = 1
+default_spec_instrs = 5
 default_gap_instrs = 1
 default_warmup_instrs = 1
 
@@ -382,21 +382,17 @@ def read_load_trace_data(load_trace, num_prefetch_warmup_instructions):
                 print(line)
                 pline = process_line(line)
 
-                if pline[0]<=1000000:
+                if pline[0]<=1000000*num_prefetch_warmup_instructions:
                     train_data.append(pline)
                     x+=1
-                else:
-                    x+=1
+        
+                
                 
 
-                if 1000000<=pline[0]<=2000000:
+                if 1000000*num_prefetch_warmup_instructions<pline[0]<=1000000*(num_prefetch_warmup_instructions+default_spec_instrs):
                     eval_data.append(pline)
                     x+=1
-                if pline[0]!=4804891:
-                    count+=1
-                else:
-                    print("Count is",count)
-                    break
+
                 # if pline[0]==2:
                 #     eval_data.append(pline)
 

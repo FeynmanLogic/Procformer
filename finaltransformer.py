@@ -7,25 +7,17 @@ def scaled_dot_product(q, k, v, mask=None):
     d_k = q.size(-1)
     scaled = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(d_k)
 
-
     if mask is not None:
-        # Adjust the mask to match the batch size
         batch_size = q.size(0)
         mask = mask[:batch_size, :scaled.size(-1)]
-
         mask = mask.unsqueeze(1).unsqueeze(2)  # Add extra dimensions for broadcasting
-
-        
-        # Apply the mask with masked_fill, where mask==0, set the values to -inf
         scaled = scaled.masked_fill(mask == 0, float('-inf'))
-
         
     attention = F.softmax(scaled, dim=-1)
     values = torch.matmul(attention, v)
     
     return values, attention
 
-# Other classes remain unchanged
 class PositionwiseFeedForward(nn.Module):
     def __init__(self, d_model, hidden, drop_prob):
         super(PositionwiseFeedForward, self).__init__()
@@ -65,6 +57,7 @@ class MultiHeadCrossAttention(nn.Module):
         values = values.permute(0, 2, 1, 3).reshape(batch_size, sequence_length, -1)
         out = self.linear_layer(values)
         return out
+
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, max_sequence_length):
         super().__init__()
@@ -220,3 +213,32 @@ class TransforMAP(nn.Module):
         decoder_output = self.decoder(encoder_output, y, mask)
         logits = self.linear(decoder_output)
         return logits
+    
+    def beam_search(self, x, y, beam_width=3, max_len=10, mask=None):
+        encoder_output = self.encoder(x)
+        
+        # Initialize beam candidates with the start sequence (y)
+        beam_candidates = [(y, 0.0)]  # (sequence, score)
+        
+        for _ in range(max_len):
+            all_candidates = []
+            
+            for seq, score in beam_candidates:
+                decoder_output = self.decoder(encoder_output, seq, mask)
+                logits = self.linear(decoder_output[:, -1, :])  # Predict next token
+                probs = self.softmax(logits)
+                
+                # Get top-k candidates
+                top_k_probs, top_k_indices = torch.topk(probs, beam_width, dim=-1)
+                
+                for i in range(beam_width):
+                    candidate_seq = torch.cat([seq, top_k_indices[:, i].unsqueeze(-1)], dim=-1)
+                    candidate_score = score + torch.log(top_k_probs[:, i]).item()
+                    all_candidates.append((candidate_seq, candidate_score))
+            
+            # Select top-k beam candidates based on their score
+            beam_candidates = sorted(all_candidates, key=lambda x: x[1], reverse=True)[:beam_width]
+        
+        # Return the sequence with the highest score
+        best_sequence = max(beam_candidates, key=lambda x: x[1])[0]
+        return best_sequence
