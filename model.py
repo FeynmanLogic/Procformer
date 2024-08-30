@@ -53,7 +53,7 @@ class MLPrefetchModel(ABC):
         binary_address = bin(address)[2:]  # Convert hex to binary and remove '0b' prefix
         return binary_address.zfill(48)  # Pad to 48 bits
 
-    @abstractmethod
+
     def preprocessor(self, data, batch_size):
         num_batches = len(data) // batch_size + (1 if len(data) % batch_size != 0 else 0)
         for i in range(num_batches):
@@ -99,7 +99,7 @@ class MLPrefetchModel(ABC):
 
             yield input_features, labels_tensor
 
-    @abstractmethod
+
     def train(self, data):
         class CustomLearningRateScheduler:
             def __init__(self, optimizer, d_model, warmup_steps=2000):
@@ -153,7 +153,7 @@ class MLPrefetchModel(ABC):
         self.save(save_path)
         print(f'Model saved to {save_path}')
 
-    @abstractmethod
+
     def generate(self, data):
         prefetches = []
         for input_features, labels in self.preprocessor(data, batch_size):
@@ -164,11 +164,11 @@ class MLPrefetchModel(ABC):
                 self.mask = self._create_mask(X.size(1))
 
             with torch.no_grad():
-                # Use beam search for generating prefetches
-                outputs = self.model.beam_search(X, X, beam_width=3, max_len=10, mask=self.mask)
+
+                outputs = self.model.beam_search(X, X, beam_width=2, max_len=10, mask=self.mask)
 
             for idx, (instruction_id, page, block, address_size) in enumerate(input_features):
-                # Get the top 2 blocks with highest probabilities
+
                 top2_blocks = torch.topk(outputs[idx], 2).indices
                 for block_idx in top2_blocks:
                     # Format the block index to a binary string of block_size length
@@ -196,8 +196,8 @@ class MLPrefetchModel(ABC):
         return prefetches
 
 
-# Replace this if you create your own model
+
 Model = MLPrefetchModel
 
-# Initialize your model
+
 model = Model()

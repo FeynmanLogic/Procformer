@@ -2,28 +2,26 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
 
 # Define the ℓ2-norm calculation for filters
 def calculate_l2_norm(filters):
-    # Calculate ℓ2-norm for the filters across all dimensions
     return torch.sqrt(torch.sum(filters ** 2, dim=(1, 2, 3)))
 
 # Pruning function
 def dynamic_filter_pruning(model, train_loader, criterion, optimizer, pruning_rate, emax, device):
+    model.to(device)  # Ensure model is on the correct device
     model.train()
+    
     for epoch in range(emax):
         running_loss = 0.0
         for i, (inputs, labels) in enumerate(train_loader):
             inputs, labels = inputs.to(device), labels.to(device)
             
-            # Zero the parameter gradients
             optimizer.zero_grad()
-
-            # Forward pass
             outputs = model(inputs)
             loss = criterion(outputs, labels)
             
-            # Backward pass and optimization
             loss.backward()
             optimizer.step()
 
@@ -31,23 +29,21 @@ def dynamic_filter_pruning(model, train_loader, criterion, optimizer, pruning_ra
 
         # Prune filters after each epoch
         for layer in model.children():
-            if isinstance(layer, nn.Conv2d):  # COP type check
+            if isinstance(layer, nn.Conv2d):
                 filters = layer.weight.data
-                n_filters = filters.size(0)  # Number of filters
+                n_filters = filters.size(0)
                 
                 l2_norms = calculate_l2_norm(filters)
                 
-                if hasattr(layer, 'fused') and layer.fused:  # Check if operation is fused
+                if hasattr(layer, 'fused') and layer.fused:
                     m = getattr(layer, 'original_filters', n_filters)
-                    # Zero out the lowest `n - m` filters
                     num_filters_to_prune = n_filters - m
                 else:
-                    # Zero out the lowest `p_ϕ * n` filters
                     num_filters_to_prune = int(pruning_rate * n_filters)
+                    num_filters_to_prune = min(num_filters_to_prune, n_filters)  # Ensure valid number
                 
-                # Identify indices of filters to prune
                 _, prune_indices = torch.topk(l2_norms, num_filters_to_prune, largest=False)
-                filters[prune_indices] = 0  # Zero out the filters
+                filters[prune_indices] = 0
         
         print(f'Epoch {epoch + 1}/{emax}, Loss: {running_loss / len(train_loader)}')
 
@@ -70,14 +66,17 @@ class SimpleCNN(nn.Module):
         x = self.fc2(x)
         return x
 
-# Instantiate model, criterion, optimizer, and data loader
+# Create dummy data
+data = torch.rand(100, 3, 32, 32)  # 100 samples, 3 channels, 32x32 image
+labels = torch.randint(0, 10, (100,))  # 100 labels for 10 classes
+train_dataset = TensorDataset(data, labels)
+train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+
+# Instantiate model, criterion, optimizer, and perform dynamic filter pruning
 model = SimpleCNN()
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
-# Assume train_loader is defined elsewhere, representing the training dataset
-train_dataset=torch.rand(1,10,10,10)
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
-
 # Perform dynamic filter pruning
-pruned_model = dynamic_filter_pruning(model, train_loader, criterion, optimizer, pruning_rate=0.2, emax=10, device='cuda')
+device = 'cpu'
+pruned_model = dynamic_filter_pruning(model, train_loader, criterion, optimizer, pruning_rate=0.2, emax=10, device=device)
