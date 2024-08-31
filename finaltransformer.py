@@ -214,7 +214,7 @@ class TransforMAP(nn.Module):
         logits = self.linear(decoder_output)
         return logits
     
-    def beam_search(self, x, y, beam_width=3, max_len=10, mask=None):
+    def beam_search(self, x, y, beam_width=2, max_len=10, mask=None):
         encoder_output = self.encoder(x)
         
         # Initialize beam candidates with the start sequence (y)
@@ -225,20 +225,29 @@ class TransforMAP(nn.Module):
             
             for seq, score in beam_candidates:
                 decoder_output = self.decoder(encoder_output, seq, mask)
-                logits = self.linear(decoder_output[:, -1, :])  # Predict next token
-                probs = self.softmax(logits)
+                logits = self.linear(decoder_output)  # Predict next token
+                
+                # Compute softmax to get probabilities
+                probs = F.softmax(logits[:, -1, :], dim=-1)
                 
                 # Get top-k candidates
                 top_k_probs, top_k_indices = torch.topk(probs, beam_width, dim=-1)
                 
-                for i in range(beam_width):
-                    candidate_seq = torch.cat([seq, top_k_indices[:, i].unsqueeze(-1)], dim=-1)
-                    candidate_score = score + torch.log(top_k_probs[:, i]).item()
-                    all_candidates.append((candidate_seq, candidate_score))
-            
-            # Select top-k beam candidates based on their score
-            beam_candidates = sorted(all_candidates, key=lambda x: x[1], reverse=True)[:beam_width]
-        
+        for i in range(beam_width):
+          next_token = top_k_indices[:, i].unsqueeze(1)  # Shape (batch_size, 1)
+    
+    # If seq has 3 dimensions (batch_size, seq_len, hidden_dim), ensure next_token matches
+          if seq.dim() == 3:
+                   next_token = next_token.unsqueeze(2)  # Shape (batch_size, 1, 1)
+                   next_token = next_token.expand(-1, -1, seq.shape[-1])  # Shape (batch_size, 1, hidden_dim)
+    
+          print(f"Shape of seq: {seq.shape}")
+          print(f"Shape of next_token: {next_token.shape}")
+    
+          candidate_seq = torch.cat([seq, next_token], dim=1)  # Concatenate along the sequence length dimension
+          candidate_score = score + torch.log(top_k_probs[:, i]).item()
+          all_candidates.append((candidate_seq, candidate_score))
+
         # Return the sequence with the highest score
         best_sequence = max(beam_candidates, key=lambda x: x[1])[0]
         return best_sequence

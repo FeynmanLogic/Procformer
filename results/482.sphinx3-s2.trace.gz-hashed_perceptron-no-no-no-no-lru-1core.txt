@@ -17,7 +17,7 @@ Warmup complete CPU 0 instructions: 1000004 cycles: 365952 (Simulation time: 0 h
 
 Warmup complete CPU 0 instructions: 1000004 cycles: 365952 (Simulation time: 0 hr 0 min 1 sec) 
 
-Finished CPU 0 instructions: 1000002 cycles: 2136005 cumulative IPC: 0.468165 (Simulation time: 0 hr 0 min 3 sec) 
+Finished CPU 0 instructions: 1000002 cycles: 2136005 cumulative IPC: 0.468165 (Simulation time: 0 hr 0 min 2 sec) 
 
 ChampSim completed all CPUs
 

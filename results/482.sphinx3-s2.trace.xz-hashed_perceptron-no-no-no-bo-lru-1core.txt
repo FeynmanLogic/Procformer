@@ -1,0 +1,14 @@
+
+*** ChampSim Multicore Out-of-Order Simulator ***
+
+Warmup Instructions: 1000000
+Prefetch Warmup Instructions: 1000000
+Simulation Instructions: 1000000
+Number of CPUs: 1
+LLC sets: 2048
+LLC ways: 16
+Off-chip DRAM Size: 4096 MB Channels: 1 Width: 64-bit Data Rate: 3200 MT/s
+
+CPU 0 runs /Users/DHRUVA/Desktop/ML-DPC/ChampSimTraces/spec06/482.sphinx3-s2.trace.xz
+TRACE FILE NOT FOUND
+Assertion failed: (0), function main, file main.cc, line 659.
