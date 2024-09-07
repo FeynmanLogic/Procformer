@@ -10,7 +10,7 @@ default_results_dir = './results'
 default_output_file = './stats.csv'
 default_spec_instrs = 5
 default_gap_instrs = 1
-default_warmup_instrs = 1
+default_warmup_instrs = 20
 
 default_seed_file = './scripts/seeds.txt'
 
@@ -388,8 +388,8 @@ def read_load_trace_data(load_trace, num_prefetch_warmup_instructions):
         
                 
                 
-
-                if 1000000*num_prefetch_warmup_instructions<pline[0]<=1000000*(num_prefetch_warmup_instructions+default_spec_instrs):
+                if pline[0]==20020196:
+                # if 1000000*num_prefetch_warmup_instructions<pline[0]<=1000000*(num_prefetch_warmup_instructions+default_spec_instrs):
                     eval_data.append(pline)
                     x+=1
 

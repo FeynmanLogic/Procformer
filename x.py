@@ -13,3 +13,12 @@ n=4226227
 print(hex(n))
 o='d401f49b040'
 print(int(o,16))
+d=227795055917056
+print(hex(d))
+print(bin(d))
+q='110011110010110110101011011000111011100000000000'
+print(len(q))
+m=0x4268a7
+print(int(m))
+n=0x496f8b582280
+print(int(n))
