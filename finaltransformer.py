@@ -206,7 +206,7 @@ class TransforMAP(nn.Module):
         self.encoder = Encoder(d_model, ffn_hidden, num_heads, drop_prob, num_layers)
         self.decoder = Decoder(d_model, ffn_hidden, num_heads, drop_prob, num_layers)
         self.linear = nn.Linear(d_model, 2**block_size)
-        self.softmax = nn.Softmax(dim=-1)
+       
 
     def forward(self, x, y, mask=None):
         encoder_output = self.encoder(x)

@@ -382,13 +382,13 @@ def read_load_trace_data(load_trace, num_prefetch_warmup_instructions):
                 print(line)
                 pline = process_line(line)
 
-                if pline[0]<=1000000*num_prefetch_warmup_instructions:
+                if pline[0]<=int(1000000)*int(num_prefetch_warmup_instructions):
                     train_data.append(pline)
                     x+=1
         
                 
                 
-                if 1000000*num_prefetch_warmup_instructions<pline[0]<=2000000*num_prefetch_warmup_instructions:
+                if int(1000000)*int(num_prefetch_warmup_instructions)<pline[0]<=2000000*int(num_prefetch_warmup_instructions):
                 # if 1000000*num_prefetch_warmup_instructions<pline[0]<=1000000*(num_prefetch_warmup_instructions+default_spec_instrs):
                     eval_data.append(pline)
                     x+=1
