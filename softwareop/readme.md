@@ -1,4 +1,6 @@
-I apologize for the formatting issues! Here is the **fully copyable** `README.md`:
+Respected sir, These is the Readme file to talk about how to generate and execute traces.
+The primary issue is to generate memory profile/trace using the intel PIN tool, and then make them Champsim ready using the CVP converter.
+The other is just how to execute the file and see what we are doing.
 
 ---
 
