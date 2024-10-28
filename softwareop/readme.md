@@ -35,22 +35,6 @@ To install the Python dependencies, run:
 pip install torch transformers datasets
 ```
 
-### Setting up ChampSim
-
-1. Clone the ChampSim repository:
-   ```bash
-   git clone https://github.com/ChampSim/ChampSim.git
-   cd ChampSim
-   ```
-
-2. Build ChampSim:
-   ```bash
-   ./build_champsim.sh bimodal no no no 1 1 1
-   ```
-
-3. ChampSim is now ready to simulate memory traces.
-
----
 
 
 
@@ -72,27 +56,6 @@ This script loads the pre-trained model, applies pruning, and evaluates the prun
 - **Pruning**: Prunes neurons based on L2 norm.
 - **Saving Post-Pruning State**: Saves the pruned model to `model_post_pruning.pth`.
 
-### `model_components.py`
-
-Contains helper classes and functions, such as:
-
-- **Auxiliary Layers**: Custom `AuxiliaryLinear` and modified encoder/decoder layers for the Transformer model.
-- **Positional Encoding**: Adds positional information to the model input.
-
-### `training_utils.py`
-
-Provides training and evaluation utilities:
-
-- **Training Function**: Handles model training.
-- **Pruning Function**: Prunes based on L2 norm.
-- **Evaluation and Logging**: Evaluates model accuracy and logs predictions.
-
-### `champsim_utils.py`
-
-Functions to help with ChampSim trace generation:
-
-- **generate_trace**: Uses Intel Pin or `perf` to generate memory traces.
-- **run_champsim**: Runs ChampSim with specified traces.
 
 ---
 
