@@ -2,3 +2,7 @@ What did I do today?
 Revamped model, added address based padding, as opposed to one on github.
 Made sure tensors created directly in the preprocessor method
 Categorical cross entropy made better.
+
+
+Repeated prediction may be due to tensor
+address alignment

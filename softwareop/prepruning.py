@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from datasets import load_dataset
 from transformers import BertTokenizer
 import math
+
 # Load the IMDB dataset
 dataset = load_dataset("imdb")
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
@@ -160,10 +161,10 @@ class ModifiedTransformerModel(nn.Module):
         self.encoder = ModifiedEncoder(d_model, ffn_hidden, num_heads, drop_prob, num_layers)
         self.decoder = ModifiedDecoder(d_model, ffn_hidden, num_heads, drop_prob, num_layers)
         self.output_layer = nn.Linear(d_model, num_classes)
-
+        self.d_model = d_model
     def forward(self, input_ids, attention_mask=None):
         # BERT's input_ids can directly be used
-        src = self.embedding(input_ids) * math.sqrt(d_model)
+        src = self.embedding(input_ids) * math.sqrt(self.d_model)
         src = self.pos_encoder(src)
         memory = self.encoder(src)
         
@@ -194,22 +195,27 @@ optimizer = optim.Adam(model.parameters())
 criterion = nn.CrossEntropyLoss()
 epochs = 3
 
-for epoch in range(epochs):
-    model.train()
-    epoch_loss = 0
-    for batch in train_loader:
-        input_ids = batch['input_ids']
-        labels = batch['label']
-        
-        optimizer.zero_grad()
-        predictions = model(input_ids)
-        loss = criterion(predictions, labels)
-        loss.backward()
-        optimizer.step()
-        epoch_loss += loss.item()
 
-    print(f"Pre-Pruning - Epoch {epoch+1}/{epochs}, Loss: {epoch_loss/len(train_loader):.4f}")
+for epoch in range(epochs):
+        model.train()
+        epoch_loss = 0
+        for batch in train_loader:
+            input_ids = batch['input_ids']
+            labels = batch['label']
+        
+            optimizer.zero_grad()
+            predictions = model(input_ids)
+            loss = criterion(predictions, labels)
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.item()
+
+print(f"Pre-Pruning - Epoch {epoch+1}/{epochs}, Loss: {epoch_loss/len(train_loader):.4f}")
 
 # Save the model before pruning
 torch.save(model.state_dict(), "model_pre_pruning.pth")
+# After defining and training your model, add this code to export it:
+scripted_model = torch.jit.trace(model)  # Convert the model to TorchScript
+scripted_model.save("model_scripted.pt")  # Save it as a .pt file
+
 print("Model state saved (pre-pruning).")
