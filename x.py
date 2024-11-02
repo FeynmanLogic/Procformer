@@ -1,24 +1,3 @@
-x=125747861956928
-print(hex(x))
-z='3cee3fd3dd80'
-print(len(z))
-print(bin(x))
-k=125747861942272
-print(len(hex(k))-2)
-z=0b001111001110111000111111110100111101110110000000
-print(hex(z))
-m=4226291
-print(hex(m))
-n=4226227
-print(hex(n))
-o='d401f49b040'
-print(int(o,16))
-d=227795055917056
-print(hex(d))
-print(bin(d))
-q='110011110010110110101011011000111011100000000000'
-print(len(q))
-m=0x4268a7
-print(int(m))
-n=0x496f8b582280
-print(int(n))
+address=0b1010
+binary_address = bin(address)[2:].zfill(48)
+print(binary_address[:30])

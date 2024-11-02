@@ -48,7 +48,7 @@ class MLPrefetchModel(ABC):
         binary_address = bin(address)[2:].zfill(48)
         page = binary_address[:PAGE_BITS]
         block = binary_address[PAGE_BITS:PAGE_BITS + BLOCK_BITS]
-        offset = binary_address[PAGE_BITS + BLOCK_BITS:]
+        offset = binary_address[PAGE_BITS + BLOCK_BITS:48]
         return page, block, offset
 
     def preprocessor(self, data, batch_size):
