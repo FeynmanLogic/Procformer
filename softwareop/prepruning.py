@@ -215,7 +215,24 @@ print(f"Pre-Pruning - Epoch {epoch+1}/{epochs}, Loss: {epoch_loss/len(train_load
 # Save the model before pruning
 torch.save(model.state_dict(), "model_pre_pruning.pth")
 # After defining and training your model, add this code to export it:
-scripted_model = torch.jit.trace(model)  # Convert the model to TorchScript
-scripted_model.save("model_scripted.pt")  # Save it as a .pt file
+model.eval()  # Switch to evaluation mode
 
-print("Model state saved (pre-pruning).")
+# Create a dummy input with the same shape as your model expects
+batch_size = 1  # Batch size for inference
+seq_length = 128  # Sequence length for the tokenizer
+dummy_input = torch.randint(0, 100, (batch_size, seq_length))  # Adjust based on your model input size
+
+# Export the model to ONNX format
+torch.onnx.export(
+    model, 
+    dummy_input, 
+    "model.onnx",  # Output ONNX file
+    export_params=True,  # Store the trained parameters in the file
+    opset_version=13,  # Use opset version 13 or higher
+    input_names=["input_ids"],  # Name of input layers
+    output_names=["output"],  # Name of output layers
+    dynamic_axes={"input_ids": {0: "batch_size"}, "output": {0: "batch_size"}},  # Enable variable batch sizes
+)
+
+
+print("Model exported to ONNX format as model.onnx")

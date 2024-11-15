@@ -297,3 +297,17 @@ print(f"Pruned Model Accuracy: {accuracy:.2f}%")
 # Save pruned model state
 torch.save(pruned_model.state_dict(), "model_post_pruning.pth")
 print("Model state saved (post-pruning).")
+dummy_input = torch.randint(0, tokenizer.vocab_size, (1, 128))  # Adjust input shape if needed
+
+torch.onnx.export(
+    pruned_model, 
+    dummy_input, 
+    "pruned_model.onnx",  # Save as ONNX file
+    export_params=True,  # Store trained parameters
+    opset_version=13,  # Use ONNX opset version 13 to avoid unsupported operator issues
+    input_names=["input_ids"],  # Specify input tensor names
+    output_names=["output"],  # Specify output tensor names
+    dynamic_axes={"input_ids": {0: "batch_size"}, "output": {0: "batch_size"}},  # Enable variable batch sizes
+)
+
+print("Pruned model exported to ONNX format as pruned_model.onnx.")
