@@ -1,5 +1,6 @@
-#include <onnxruntime/core/providers/cpu/cpu_provider_factory.h>
-#include <onnxruntime/core/session/onnxruntime_cxx_api.h>
+#include "cpu_provider_factory.h"
+
+#include <onnxruntime_cxx_api.h>
 #include <iostream>
 #include <vector>
 

@@ -1,0 +1,22 @@
+v 4
+file . "tb_lut_newmul.vhd" "65a28a2c42bb573b20bc275af6f88d5a156aff66" "20241110062629.566":
+  entity tb_lut_newmul at 1( 0) + 0 on 43;
+  architecture behavioral of tb_lut_newmul at 9( 134) + 0 on 44;
+file . "lut.vhd" "ce69a863aaf0f316b9a1bc96b58e22bb974ba1e3" "20241110062652.442":
+  entity lut_newmul at 1( 0) + 0 on 45;
+  architecture behavioral of lut_newmul at 14( 288) + 0 on 46;
+file . "rom_xor.vhd" "d7b6b7c1837278b373db028e8d67fc48a42956f3" "20241110062619.559":
+  entity rom_xor at 1( 0) + 0 on 41;
+  architecture behavioral of rom_xor at 21( 530) + 0 on 42;
+file . "rom_sigmoid.vhd" "c887fd6cb6f959361929b745692f1a74c4197d57" "20241110062616.040":
+  entity rom_sigmoid at 1( 0) + 0 on 39;
+  architecture behavioral of rom_sigmoid at 21( 542) + 0 on 40;
+file . "mac_2bit.vhd" "5e2329dbdcf51df86aeb511e1c6d8f85beccb14f" "20241110062536.628":
+  entity mac_2bit at 1( 0) + 0 on 31;
+  architecture behavioral of mac_2bit at 13( 336) + 0 on 32;
+file . "rom_and.vhd" "0045635ded38e99758f6b6174904e46e420bf2a6" "20241110062606.351":
+  entity rom_and at 1( 0) + 0 on 37;
+  architecture behavioral of rom_and at 21( 511) + 0 on 38;
+file . "rom_quantized_sigmoid.vhd" "0850de489002502278d3e135910c50936853343c" "20241110062543.067":
+  entity rom_quantized_sigmoid at 1( 0) + 0 on 33;
+  architecture behavioral of rom_quantized_sigmoid at 12( 301) + 0 on 34;

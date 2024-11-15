@@ -104,6 +104,178 @@ Each file includes:
 The logs make it easy to see if the pruning process affected the prediction accuracy.
 
 ---
+# The problem is, we need to have C++ code. Here is how to get
+# ONNX Runtime Inference Guide on Ubuntu
+
+This guide explains how to set up and execute an ONNX Runtime-based inference script on an Ubuntu system, starting from installation to execution.
+
+---
+
+## Prerequisites
+
+1. **Ubuntu 20.04 or later**
+2. **g++** (GNU C++ compiler)
+3. **CMake** (For building ONNX Runtime, if required)
+4. Python (Optional, for exporting models to ONNX format)
+
+---
+
+## Step 1: Install Dependencies
+
+Before setting up ONNX Runtime, install the required dependencies:
+
+```bash
+sudo apt update && sudo apt upgrade
+sudo apt install -y build-essential wget cmake libgomp1
+```
+
+---
+
+## Step 2: Download ONNX Runtime
+
+1. Visit the [ONNX Runtime Releases](https://github.com/microsoft/onnxruntime/releases) page.
+2. Download the precompiled ONNX Runtime package for Linux.
+   
+   Alternatively, download it via `wget`:
+
+   ```bash
+   wget https://github.com/microsoft/onnxruntime/releases/download/v1.20.0/onnxruntime-linux-x64-1.20.0.tgz
+   ```
+
+3. Extract the package:
+
+   ```bash
+tar -xvzf onnxruntime-linux-x64-1.20.0.tgz
+   ```
+
+4. Move the extracted directory to a suitable location:
+
+   ```bash
+   sudo mv onnxruntime-linux-x64-1.20.0 /usr/local/onnxruntime
+   ```
+
+---
+
+## Step 3: Set Up Environment Variables
+
+To ensure the system can locate the ONNX Runtime libraries during runtime:
+
+1. Add ONNX Runtime's library path to your environment:
+
+   ```bash
+   echo 'export LD_LIBRARY_PATH=/usr/local/onnxruntime/lib:$LD_LIBRARY_PATH' >> ~/.bashrc
+   source ~/.bashrc
+   ```
+
+2. Verify the library path:
+
+   ```bash
+   echo $LD_LIBRARY_PATH
+   ```
+
+   You should see `/usr/local/onnxruntime/lib` included.
+
+---
+
+## Step 4: Write Your Inference Script
+
+Create a C++ script for inference, for example, `onnx_inference.cpp`. Use the code provided earlier in this guide.
+
+Save the file in your project directory:
+
+```bash
+nano onnx_inference.cpp
+```
+
+Paste the content, then save and exit.
+
+---
+
+## Step 5: Compile the Script
+
+Compile the script using `g++` and link it to the ONNX Runtime library:
+
+```bash
+g++ onnx_inference.cpp -o onnx_inference \
+    -I/usr/local/onnxruntime/include \
+    -L/usr/local/onnxruntime/lib \
+    -lonnxruntime \
+    -std=c++17 -O3
+```
+
+---
+
+## Step 6: Run the Inference Script
+
+Run the compiled executable:
+
+```bash
+./onnx_inference
+```
+
+If you encounter errors about missing libraries, ensure the `LD_LIBRARY_PATH` is correctly set.
+
+---
+
+## Optional: Export an ONNX Model (Python)
+
+If you don’t have an ONNX model, you can export one using PyTorch or TensorFlow. Here’s an example using PyTorch:
+
+1. Install PyTorch and ONNX:
+
+   ```bash
+   pip install torch torchvision onnx
+   ```
+
+2. Export a model to ONNX:
+
+   ```python
+   import torch
+   import torch.nn as nn
+
+   # Example PyTorch Model
+   class SimpleModel(nn.Module):
+       def __init__(self):
+           super(SimpleModel, self).__init__()
+           self.fc = nn.Linear(10, 2)
+
+       def forward(self, x):
+           return self.fc(x)
+
+   model = SimpleModel()
+   model.eval()
+
+   # Dummy input for the model
+   dummy_input = torch.randn(1, 10)
+
+   # Export the model
+   torch.onnx.export(model, dummy_input, "simple_model.onnx", export_params=True, opset_version=11)
+   print("Model exported to simple_model.onnx")
+   ```
+
+3. Move the exported `simple_model.onnx` to your project directory.
+
+---
+
+## Common Errors and Fixes
+
+1. **Error: Library not found**
+   - Ensure `LD_LIBRARY_PATH` includes `/usr/local/onnxruntime/lib`.
+
+2. **Error: Header file not found**
+   - Verify the `-I` path during compilation points to `/usr/local/onnxruntime/include`.
+
+3. **Error: Input/Output names mismatch**
+   - Inspect your ONNX model with [Netron](https://netron.app/) to verify the input and output names.
+
+---
+
+## Final Notes
+
+You can now run your ONNX model inference script on Ubuntu. Modify the paths as needed for your specific setup. For advanced features like GPU inference, install the ONNX Runtime GPU version and follow similar steps.
+
+
+
 
 
 # How to create traces; The most important part
